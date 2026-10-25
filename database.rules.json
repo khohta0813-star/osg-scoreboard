@@ -1,0 +1,19 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "courts": {
+      "$courtId": {
+        ".read": true,
+        ".write": "auth != null && $courtId.matches(/^[A-Z0-9_-]{1,20}$/)",
+
+        "draft": { ".validate": "newData.hasChildren(['teams', 'm', 'lay'])" },
+        "pub":   { ".validate": "newData.hasChildren(['teams', 'm', 'lay'])" },
+        "sc":    { ".validate": "newData.hasChildren(['g', 'p'])" },
+        "rules": { ".validate": "newData.hasChildren(['sets'])" },
+        "hist":  { ".validate": "newData.hasChildren()" }
+      }
+    }
+  }
+}

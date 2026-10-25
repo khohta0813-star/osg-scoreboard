@@ -1,0 +1,441 @@
+<title>OSG LIVEスコアボード</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Noto+Sans+JP:wght@500;700;900&display=swap">
+<style>
+/* Layout: draft canvas (edit) beside a live preview (what viewers see), publish bar between, operator panels below. Single dark control-room look, colors from the OSG manual. */
+:root{
+  color-scheme: dark;
+  --navy:#0f1f3d; --navy-2:#162a4f; --line:#2a4170;
+  --lime:#d4ef3a; --ink:#eef2f8; --mute:#93a3c0;
+  --danger:#e5484d; --amber:#f5b83d;
+  --f-num:"Barlow Condensed","Noto Sans JP",system-ui,sans-serif;
+  --f-jp:"Noto Sans JP",system-ui,sans-serif;
+}
+html,body{height:100%}
+body{background:var(--navy);color:var(--ink);font-family:var(--f-jp);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:18px;margin:0;font-weight:900;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+.live{background:var(--danger);color:#fff;font-family:var(--f-num);font-weight:700;font-size:14px;letter-spacing:.08em;padding:2px 10px;border-radius:99px}
+.bar{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:14px;font-weight:700;color:var(--ink);background:var(--navy-2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer;touch-action:manipulation}
+button:hover:not(:disabled){border-color:var(--mute)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+button.on{background:var(--lime);color:var(--navy);border-color:var(--lime)}
+button.warn{border-color:var(--danger);color:#ffb4b6}
+button.go{background:var(--lime);color:var(--navy);border-color:var(--lime);font-size:16px;padding:11px 20px}
+
+/* monitors */
+.monitors{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px;align-items:start}
+@media (max-width:760px){.monitors{grid-template-columns:minmax(0,1fr)}}
+.mon{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mon-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--mute)}
+.mon-h b{color:var(--ink)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 3px rgba(229,72,77,.25)}
+.dot.draft{background:var(--amber);box-shadow:0 0 0 3px rgba(245,184,61,.25)}
+.stage{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;overflow:hidden;border-radius:12px;background:#24563e;border:2px solid var(--line)}
+.stage.is-live{border-color:var(--danger)}
+.pub{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;background:var(--navy-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.pub.dirty{border-color:var(--amber)}
+.pub p{margin:0;font-size:14px;font-weight:700}
+.pub.dirty p{color:var(--amber)}
+.pub .bar{flex:0 0 auto}
+
+.cv{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.court{position:absolute;inset:0;width:100%;height:100%}
+.w{position:absolute;transform-origin:0 0;user-select:none}
+.edit .w{outline:3px dashed rgba(212,239,58,.85);outline-offset:6px;cursor:move;touch-action:none}
+.w .hdl{display:none;position:absolute;right:-22px;bottom:-22px;width:34px;height:34px;background:var(--lime);border-radius:50%;cursor:nwse-resize;touch-action:none;border:4px solid var(--navy)}
+.edit .w .hdl{display:block}
+.w .tag{display:none;position:absolute;left:0;top:-46px;background:var(--lime);color:var(--navy);font:700 22px var(--f-jp);padding:2px 10px;border-radius:6px;white-space:nowrap}
+.edit .w .tag{display:block}
+
+/* overlay parts (canvas pixels) */
+.outl{color:#fff;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 6px rgba(0,0,0,.6);font-family:var(--f-jp);font-weight:700}
+.results{font-size:38px;line-height:1.3;white-space:pre}
+.results.band div{background:rgba(0,0,0,.55);padding:0 14px;margin-bottom:4px;width:max-content}
+.player{font-size:40px;white-space:pre}
+.free{font-size:40px;white-space:pre-wrap;max-width:1400px}
+.free.band{background:rgba(15,31,61,.88);padding:10px 22px;border-left:8px solid var(--lime);text-shadow:none}
+.bug{display:grid;gap:8px;background:#0b0b0d;padding:14px;font-family:var(--f-num);align-items:center}
+.bug .nm{background:#4a4d55;color:#fff;font-weight:700;font-size:48px;height:96px;display:flex;align-items:center;justify-content:center;padding:0 16px;position:relative;letter-spacing:.02em}
+.bug .nm.win{background:var(--lime);color:#0b0b0d}
+.bug .srv{position:absolute;right:-14px;bottom:-12px;width:26px;height:26px;border-radius:50%;background:#e8f53a;box-shadow:0 0 0 3px #0b0b0d}
+.bug .pt{background:#fff;color:#0b0b0d;font-weight:800;font-size:96px;height:96px;display:flex;align-items:center;justify-content:center;line-height:1}
+.bug .st{border:3px solid #9aa0aa;color:#fff;font-weight:700;font-size:88px;height:96px;display:flex;align-items:center;justify-content:center;line-height:1;position:relative}
+.bug .st.cur{border-color:#fff}
+.bug .st sup{position:absolute;right:4px;top:4px;font-size:28px}
+.bug .lbl{background:#fff;color:#0b0b0d;font-weight:700;font-size:26px;text-align:center;letter-spacing:.06em;height:34px;line-height:34px}
+.bug .sh{color:#fff;font-weight:700;font-size:24px;text-align:center;letter-spacing:.04em}
+
+/* panels */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px}
+.card{background:var(--navy-2);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{margin:0;font-size:13px;letter-spacing:.12em;color:var(--lime);font-family:var(--f-num);font-weight:700;text-transform:uppercase;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.card h2 span{color:var(--mute);font-family:var(--f-jp);letter-spacing:0;text-transform:none}
+.chip{font-family:var(--f-jp);font-size:11px;letter-spacing:0;padding:1px 8px;border-radius:99px;text-transform:none}
+.chip.now{background:rgba(229,72,77,.18);color:#ffb4b6}
+.chip.drf{background:rgba(245,184,61,.16);color:var(--amber)}
+.big{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.big button{padding:22px 8px;font-size:18px;display:flex;flex-direction:column;gap:4px;align-items:center;border-width:2px}
+.big button small{font-weight:500;color:var(--mute);font-size:13px}
+.big button:active{background:var(--lime);color:var(--navy)}
+.readout{font-family:var(--f-num);font-size:28px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row>*{flex:1 1 auto}
+label{font-size:13px;color:var(--mute);display:flex;flex-direction:column;gap:4px;min-width:0}
+input[type=text],textarea,select{font:inherit;font-size:15px;color:var(--ink);background:var(--navy);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;box-sizing:border-box}
+textarea{min-height:96px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chk{flex-direction:row;align-items:center;gap:6px;color:var(--ink);font-size:14px}
+.lay{display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:center;font-size:14px}
+.lay input[type=range]{width:100%;accent-color:var(--lime)}
+.note{font-size:12px;color:var(--mute);line-height:1.6;margin:0}
+
+/* broadcast mode: only the live canvas, transparent, fills window */
+body.bc{background:transparent;padding:0}
+body.bc .wrap>*:not(.monitors),body.bc .mon-h,body.bc #draftMon{display:none}
+body.bc .monitors{display:block}
+body.bc #liveStage{position:fixed;inset:0;width:100vw;height:100vh;aspect-ratio:auto;border:0;border-radius:0;background:transparent}
+body.bc .court,body.bc .bgimg{display:none}
+#exitBc{display:none}
+body.bc #exitBc{display:block;position:fixed;right:8px;top:8px;opacity:0;z-index:9}
+body.bc #exitBc:hover,body.bc #exitBc:focus{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<template id="cvTpl">
+  <div class="cv">
+    <svg class="court" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="true">
+      <rect width="1920" height="380" fill="#1b2340"/>
+      <rect y="380" width="1920" height="700" fill="#5d8f73"/>
+      <g fill="none" stroke="#f4f4f4" stroke-width="6">
+        <polygon points="560,470 1360,470 1740,1000 180,1000"/>
+        <line x1="660" y1="470" x2="370" y2="1000"/><line x1="1260" y1="470" x2="1550" y2="1000"/>
+        <line x1="500" y1="780" x2="1420" y2="780"/><line x1="960" y1="530" x2="960" y2="780"/>
+      </g>
+      <rect x="370" y="540" width="1180" height="90" fill="rgba(20,20,20,.35)" stroke="#eee" stroke-width="4"/>
+    </svg>
+    <img class="bgimg" alt="" hidden>
+    <div class="w" data-id="results"><span class="tag">団体戦の結果</span><div class="results outl"></div><div class="hdl"></div></div>
+    <div class="w" data-id="bug"><span class="tag">スコア速報</span><div class="bug"></div><div class="hdl"></div></div>
+    <div class="w" data-id="player"><span class="tag">選手情報</span><div class="player outl"></div><div class="hdl"></div></div>
+    <div class="w" data-id="free"><span class="tag">自由テキスト</span><div class="free outl"></div><div class="hdl"></div></div>
+  </div>
+</template>
+
+<button id="exitBc">編集画面に戻る</button>
+<div class="wrap">
+  <header>
+    <h1><span class="live">● LIVE</span>OSG スコアボード</h1>
+    <div class="bar">
+      <button id="editBtn">レイアウト編集</button>
+      <button id="bgBtn">背景画像を読み込む</button>
+      <input type="file" id="bgFile" accept="image/*" hidden>
+      <button id="bcBtn">配信表示モード</button>
+    </div>
+  </header>
+
+  <div class="monitors">
+    <div class="mon" id="draftMon">
+      <div class="mon-h"><span class="dot draft"></span><b>下書き</b>ここで編集します（視聴者には見えません）</div>
+      <div class="stage" id="draftStage"></div>
+    </div>
+    <div class="mon" id="liveMon">
+      <div class="mon-h"><span class="dot"></span><b>配信中の画面</b>視聴者に見えている表示</div>
+      <div class="stage is-live" id="liveStage"></div>
+    </div>
+  </div>
+
+  <div class="pub" id="pubBar">
+    <p id="pubMsg">下書きと配信中の表示は同じです</p>
+    <div class="bar">
+      <button id="discard">下書きを破棄</button>
+      <button id="publish" class="go">配信に反映</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Score<span>スコア操作</span><span class="chip now">押すと即時に配信</span></h2>
+      <div class="readout" id="readout"></div>
+      <div class="big">
+        <button id="ptA"><span id="ptAn"></span><small id="ptAp"></small></button>
+        <button id="ptB"><span id="ptBn"></span><small id="ptBp"></small></button>
+      </div>
+      <div class="row">
+        <button id="undo">↶ 取り消し</button>
+        <button id="srv">サーブ交代</button>
+        <button id="reset" class="warn">試合をリセット</button>
+      </div>
+      <button id="addResult">この試合の結果を「団体戦の結果」の下書きに追加</button>
+    </section>
+
+    <section class="card">
+      <h2>Match<span>試合設定</span><span class="chip drf">下書き</span></h2>
+      <div class="two">
+        <label>チームA<input type="text" id="tA"></label>
+        <label>チームB<input type="text" id="tB"></label>
+        <label>選手A（ダブルスは「渡邉・島」）<input type="text" id="pA"></label>
+        <label>選手B<input type="text" id="pB"></label>
+        <label>種目コード<input type="text" id="code" placeholder="S1 / S2 / D"></label>
+        <label>スコア枠ラベル<input type="text" id="lbl" placeholder="SINGLES 2"></label>
+      </div>
+      <label>選手情報（右下）の表示文<input type="text" id="pOverride" placeholder="空欄なら自動：S2 大矢祥生(OSG) vs 油布将也(LUCENT)"></label>
+      <div class="row">
+        <label>セット数（即時）<select id="sets"><option value="1">1セット</option><option value="3">3セット（2セット先取）</option><option value="5">5セット</option></select></label>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="noAd">ノーアドバンテージ</label>
+        <label class="chk"><input type="checkbox" id="tb">6-6でタイブレーク</label>
+        <label class="chk"><input type="checkbox" id="mtb">最終セットは10ポイントタイブレーク</label>
+      </div>
+      <p class="note">得点ルールは計算に使うため、変更するとすぐに適用されます。</p>
+    </section>
+
+    <section class="card">
+      <h2>Team results<span>団体戦の結果（1行に1試合）</span><span class="chip drf">下書き</span></h2>
+      <textarea id="results"></textarea>
+      <label class="chk"><input type="checkbox" id="resBand">背景の帯を付ける</label>
+    </section>
+
+    <section class="card">
+      <h2>Free text<span>自由テキスト</span><span class="chip drf">下書き</span></h2>
+      <textarea id="free" placeholder="例：次の試合は 14:30 開始予定です"></textarea>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="freeBand">帯スタイル</label>
+        <label class="chk"><input type="checkbox" id="freeOn">表示する</label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Layout<span>位置と大きさ</span><span class="chip drf">下書き</span></h2>
+      <div class="lay" id="lay"></div>
+      <p class="note">「レイアウト編集」を押すと、下書き画面の各パーツをドラッグで移動、右下の丸で拡大・縮小できます。文字やレイアウトの変更は「配信に反映」を押すまで視聴者には見えません。</p>
+    </section>
+  </div>
+</div>
+
+<script>
+const KEY='osg-scoreboard-v2';
+const PARTS=[['results','団体戦の結果'],['bug','スコア速報'],['player','選手情報'],['free','自由テキスト']];
+const DISPLAY={
+  teams:{a:'OSG',b:'LUCENT'},
+  m:{code:'S2',lbl:'SINGLES 2',pA:'大矢祥生',pB:'油布将也',override:''},
+  results:'S1 山口雄矢(OSG) 7-6(7-4) 6-2 矢ノ川歩(LUCENT)\nD  渡邉・島(OSG) 6-4 3-6 [10-7] 福田・中村(LUCENT)',
+  resBand:false,
+  free:'第41回 テニス日本リーグ 1stステージ ｜ コートA',freeBand:true,freeOn:false,
+  lay:{results:{x:12,y:24,s:1,v:true},bug:{x:1500,y:60,s:1,v:true},player:{x:1180,y:1010,s:1,v:true},free:{x:24,y:990,s:.9,v:true}}
+};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const DEF={draft:clone(DISPLAY),pub:clone(DISPLAY),rules:{sets:3,noAd:false,tb:true,mtb:false},
+  sc:{done:[{a:6,b:3,tb:null}],g:{a:5,b:3},p:{a:2,b:3},tb:false,mtb:false,srv:'b',tbFirst:'a',win:null},hist:[]};
+let st;
+try{st=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!st||!st.sc||!st.pub)st=clone(DEF);
+let bc=null;try{bc=new BroadcastChannel(KEY);bc.onmessage=e=>{st=e.data;fillForm();render()}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){} try{bc&&bc.postMessage(st)}catch(e){}}
+const $=id=>document.getElementById(id);
+const oth=s=>s==='a'?'b':'a';
+const D=()=>st.draft;
+
+/* ---------- tennis scoring ---------- */
+const toWin=()=>Math.ceil(st.rules.sets/2);
+const wins=s=>st.sc.done.filter(r=>r[s]>r[oth(s)]).length;
+function addPoint(side){
+  const sc=st.sc; if(sc.win)return;
+  st.hist.push(JSON.stringify(sc)); if(st.hist.length>150)st.hist.shift();
+  const o=oth(side); sc.p[side]++;
+  if(sc.tb){
+    const target=sc.mtb?10:7;
+    if(sc.p[side]>=target&&sc.p[side]-sc.p[o]>=2)endSet(side,true);
+    else if((sc.p.a+sc.p.b)%2===1)sc.srv=oth(sc.srv);
+  }else{
+    const won=st.rules.noAd?sc.p[side]>=4:(sc.p[side]>=4&&sc.p[side]-sc.p[o]>=2);
+    if(won){
+      sc.g[side]++; sc.p={a:0,b:0}; sc.srv=oth(sc.srv);
+      if(sc.g[side]>=6&&sc.g[side]-sc.g[o]>=2)endSet(side,false);
+      else if(sc.g.a===6&&sc.g.b===6&&st.rules.tb){sc.tb=true;sc.tbFirst=sc.srv}
+    }else{while(sc.p.a>3&&sc.p.b>3){sc.p.a--;sc.p.b--}}
+  }
+  commit();
+}
+function endSet(side,wasTB){
+  const sc=st.sc; const rec={a:sc.g.a,b:sc.g.b,tb:null};
+  if(wasTB){
+    rec.tb={a:sc.p.a,b:sc.p.b};
+    if(sc.mtb){rec.a=side==='a'?1:0;rec.b=side==='b'?1:0;rec.mtb=true}else rec[side]=sc.g[side]+1;
+    sc.srv=oth(sc.tbFirst);
+  }
+  sc.done.push(rec); sc.g={a:0,b:0}; sc.p={a:0,b:0}; sc.tb=false; sc.mtb=false;
+  if(wins(side)>=toWin()){sc.win=side;return}
+  if(st.rules.mtb&&wins('a')===toWin()-1&&wins('b')===toWin()-1){sc.tb=true;sc.mtb=true;sc.tbFirst=sc.srv}
+}
+function ptText(s){
+  const sc=st.sc; if(sc.win)return '';
+  if(sc.tb)return String(sc.p[s]);
+  const a=sc.p[s],b=sc.p[oth(s)];
+  if(a>=3&&b>=3)return a===b?'40':(a>b?'AD':'40');
+  return ['0','15','30','40'][a];
+}
+function setStr(r){
+  if(r.mtb)return `[${r.tb.a}-${r.tb.b}]`;
+  return `${r.a}-${r.b}`+(r.tb?`(${r.tb.a}-${r.tb.b})`:'');
+}
+function resultLine(d){
+  const sc=st.sc,m=d.m,t=d.teams;
+  const parts=sc.done.map(setStr);
+  if(!sc.win&&(sc.g.a||sc.g.b))parts.push(`${sc.g.a}-${sc.g.b}`);
+  return `${m.code} ${m.pA}(${t.a}) ${parts.length?parts.join(' '):'vs'} ${m.pB}(${t.b})`;
+}
+function commit(){save();render()}
+
+/* ---------- canvases ---------- */
+const stages={draft:$('draftStage'),live:$('liveStage')};
+for(const k in stages){stages[k].appendChild($('cvTpl').content.cloneNode(true));stages[k].S=1;new ResizeObserver(()=>fit(stages[k])).observe(stages[k])}
+function fit(stage){
+  const cv=stage.querySelector('.cv'),W=stage.clientWidth,H=stage.clientHeight;
+  const S=Math.min(W/1920,H/1080);stage.S=S;
+  cv.style.transform=`translate(${(W-1920*S)/2}px,${(H-1080*S)/2}px) scale(${S})`;
+}
+function cell(cls,txt,sup){const d=document.createElement('div');d.className=cls;d.textContent=txt;if(sup!=null){const s=document.createElement('sup');s.textContent=sup;d.appendChild(s)}return d}
+function renderBug(el,d){
+  const sc=st.sc; el.textContent='';
+  const cols=sc.done.map(r=>({r}));
+  if(!sc.win)cols.push({cur:true,mtb:sc.mtb});
+  el.style.gridTemplateColumns=`190px 112px ${cols.map(()=>'72px').join(' ')}`;
+  for(const row of ['a','mid','b']){
+    if(row==='mid'){
+      el.appendChild(cell('lbl',d.m.lbl||' '));el.appendChild(cell('',''));
+      cols.forEach((c,i)=>el.appendChild(cell('sh',c.mtb||(c.r&&c.r.mtb)?'TB':'SET '+(i+1))));
+      continue;
+    }
+    const nm=cell('nm'+(sc.win===row?' win':''),d.teams[row]);
+    if(!sc.win&&sc.srv===row)nm.appendChild(cell('srv',''));
+    el.appendChild(nm);
+    el.appendChild(cell('pt',ptText(row)));
+    cols.forEach(c=>{
+      if(c.r){const r=c.r;const lose=r.tb&&!r.mtb&&r[row]<r[oth(row)]?r.tb[row]:null;
+        el.appendChild(cell('st',r.mtb?r.tb[row]:r[row],lose));}
+      else el.appendChild(cell('st cur',c.mtb?sc.p[row]:sc.g[row]));
+    });
+  }
+}
+function renderCanvas(stage,d){
+  const q=s=>stage.querySelector(s);
+  renderBug(q('.bug'),d);
+  const r=q('.results');r.textContent='';r.classList.toggle('band',d.resBand);
+  d.results.split('\n').filter(l=>l.trim()).forEach(l=>{const x=document.createElement('div');x.textContent=l;r.appendChild(x)});
+  q('.player').textContent=d.m.override.trim()||`${d.m.code} ${d.m.pA}(${d.teams.a}) vs ${d.m.pB}(${d.teams.b})`;
+  const f=q('.free');f.textContent=d.free;f.classList.toggle('band',d.freeBand);
+  stage.querySelectorAll('.w').forEach(w=>{
+    const id=w.dataset.id,L=d.lay[id];
+    w.hidden=!(L.v&&(id!=='free'||(d.freeOn&&d.free.trim())));
+    place(w,L);
+  });
+}
+function place(w,L){w.style.left=L.x+'px';w.style.top=L.y+'px';w.style.transform=`scale(${L.s})`}
+const dirty=()=>JSON.stringify(st.draft)!==JSON.stringify(st.pub);
+function render(){
+  renderCanvas(stages.draft,st.draft);
+  renderCanvas(stages.live,st.pub);
+  const sc=st.sc,t=st.pub.teams,m=st.pub.m;
+  $('ptAn').textContent=t.a;$('ptBn').textContent=t.b;$('ptAp').textContent=m.pA;$('ptBp').textContent=m.pB;
+  const sets=sc.done.map(setStr).join('  ');
+  $('readout').textContent=sc.win?`${t[sc.win]} の勝利　${sets}`:
+    `${sets?sets+'  ｜  ':''}${sc.g.a}-${sc.g.b}  ｜  ${ptText('a')}-${ptText('b')}${sc.tb?(sc.mtb?'  (10pt TB)':'  (TB)'):''}`;
+  $('undo').disabled=!st.hist.length;
+  const dt=dirty();
+  $('pubBar').classList.toggle('dirty',dt);
+  $('pubMsg').textContent=dt?'未反映の変更があります。下書きを確認して「配信に反映」を押してください':'下書きと配信中の表示は同じです';
+  $('publish').disabled=!dt;$('discard').disabled=!dt;
+  renderLay();
+}
+
+/* ---------- drag on draft ---------- */
+let editing=false;
+stages.draft.querySelectorAll('.w').forEach(w=>{
+  w.addEventListener('pointerdown',e=>{
+    if(!editing)return; e.preventDefault();
+    const L=D().lay[w.dataset.id],S=stages.draft.S,sx=e.clientX,sy=e.clientY,ox=L.x,oy=L.y,os=L.s;
+    const resize=e.target.classList.contains('hdl'),natW=w.offsetWidth;
+    w.setPointerCapture(e.pointerId);
+    const mv=ev=>{
+      const dx=(ev.clientX-sx)/S,dy=(ev.clientY-sy)/S;
+      if(resize)L.s=Math.max(.3,Math.min(3,(natW*os+dx)/natW));
+      else{L.x=Math.round(Math.max(-50,Math.min(1900,ox+dx)));L.y=Math.round(Math.max(-50,Math.min(1060,oy+dy)))}
+      place(w,L);
+    };
+    const up=()=>{w.removeEventListener('pointermove',mv);w.removeEventListener('pointerup',up);w.removeEventListener('pointercancel',up);commit()};
+    w.addEventListener('pointermove',mv);w.addEventListener('pointerup',up);w.addEventListener('pointercancel',up);
+  });
+});
+$('editBtn').onclick=()=>{editing=!editing;stages.draft.classList.toggle('edit',editing);$('editBtn').classList.toggle('on',editing);$('editBtn').textContent=editing?'編集を終了':'レイアウト編集'};
+
+function renderLay(){
+  const box=$('lay');
+  if(!box.childElementCount){
+    PARTS.forEach(([id,name])=>{
+      const c=document.createElement('label');c.className='chk';
+      const cb=document.createElement('input');cb.type='checkbox';cb.id='v_'+id;c.append(cb,name);
+      const r=document.createElement('input');r.type='range';r.min=.3;r.max=3;r.step=.05;r.id='s_'+id;r.setAttribute('aria-label',name+'の大きさ');
+      const b=document.createElement('button');b.textContent='初期位置';b.id='r_'+id;
+      box.append(c,r,b);
+      cb.onchange=e=>{D().lay[id].v=e.target.checked;commit()};
+      r.oninput=e=>{D().lay[id].s=+e.target.value;place(stages.draft.querySelector(`.w[data-id=${id}]`),D().lay[id])};
+      r.onchange=commit;
+      b.onclick=()=>{D().lay[id]=clone(DISPLAY.lay[id]);commit()};
+    });
+  }
+  PARTS.forEach(([id])=>{$('v_'+id).checked=D().lay[id].v;$('s_'+id).value=D().lay[id].s});
+}
+
+/* ---------- form binding ---------- */
+const binds=[['tA',v=>D().teams.a=v,()=>D().teams.a],['tB',v=>D().teams.b=v,()=>D().teams.b],
+ ['pA',v=>D().m.pA=v,()=>D().m.pA],['pB',v=>D().m.pB=v,()=>D().m.pB],['code',v=>D().m.code=v,()=>D().m.code],
+ ['lbl',v=>D().m.lbl=v,()=>D().m.lbl],['pOverride',v=>D().m.override=v,()=>D().m.override],
+ ['results',v=>D().results=v,()=>D().results],['free',v=>D().free=v,()=>D().free]];
+binds.forEach(([id,set])=>$(id).addEventListener('input',e=>{set(e.target.value);commit()}));
+const checks=[['noAd',v=>st.rules.noAd=v,()=>st.rules.noAd],['tb',v=>st.rules.tb=v,()=>st.rules.tb],['mtb',v=>st.rules.mtb=v,()=>st.rules.mtb],
+ ['resBand',v=>D().resBand=v,()=>D().resBand],['freeBand',v=>D().freeBand=v,()=>D().freeBand],['freeOn',v=>D().freeOn=v,()=>D().freeOn]];
+checks.forEach(([id,set])=>$(id).addEventListener('change',e=>{set(e.target.checked);commit()}));
+$('sets').onchange=e=>{st.rules.sets=+e.target.value;commit()};
+function fillForm(){
+  binds.forEach(([id,,get])=>{if(document.activeElement!==$(id))$(id).value=get()});
+  checks.forEach(([id,,get])=>$(id).checked=get());
+  $('sets').value=String(st.rules.sets);
+}
+
+/* ---------- buttons ---------- */
+$('publish').onclick=()=>{st.pub=clone(st.draft);commit();$('pubMsg').textContent='配信に反映しました'};
+$('discard').onclick=()=>{st.draft=clone(st.pub);fillForm();commit()};
+$('ptA').onclick=()=>addPoint('a');$('ptB').onclick=()=>addPoint('b');
+$('undo').onclick=()=>{const h=st.hist.pop();if(h){st.sc=JSON.parse(h);commit()}};
+$('srv').onclick=()=>{st.sc.srv=oth(st.sc.srv);commit()};
+let armed=null;
+$('reset').onclick=()=>{
+  if(!armed){$('reset').textContent='もう一度押すとリセット';armed=setTimeout(()=>{armed=null;$('reset').textContent='試合をリセット'},3000);return}
+  clearTimeout(armed);armed=null;$('reset').textContent='試合をリセット';
+  st.hist.push(JSON.stringify(st.sc));st.sc={done:[],g:{a:0,b:0},p:{a:0,b:0},tb:false,mtb:false,srv:'a',tbFirst:'a',win:null};commit();
+};
+$('addResult').onclick=()=>{
+  const d=D(),line=resultLine(d),code=d.m.code.trim();
+  const lines=d.results.split('\n').filter(l=>l.trim());
+  const i=lines.findIndex(l=>code&&l.startsWith(code+' '));
+  if(i>=0)lines[i]=line;else lines.push(line);
+  d.results=lines.join('\n');fillForm();commit();
+};
+$('bgBtn').onclick=()=>$('bgFile').click();
+$('bgFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>document.querySelectorAll('.bgimg').forEach(i=>{i.src=r.result;i.hidden=false});r.readAsDataURL(f)};
+function setBc(on){document.body.classList.toggle('bc',on);if(on&&editing)$('editBtn').click();setTimeout(()=>fit(stages.live),0)}
+$('bcBtn').onclick=()=>setBc(true);$('exitBc').onclick=()=>setBc(false);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')setBc(false)});
+if(location.hash==='#overlay')setBc(true);
+
+fillForm();render();
+</script>

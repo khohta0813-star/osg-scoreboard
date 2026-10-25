@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>OSG LIVEスコアボード（操作）</title>
+<!-- 操作画面。左が下書き、右が配信中の画面。
+     スコア操作と得点ルールは即時反映、それ以外は「配信に反映」で draft→pub にコピー。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Noto+Sans+JP:wght@500;700;900&display=swap">
+<link rel="stylesheet" href="css/parts.css">
+<link rel="stylesheet" href="css/control.css">
+</head>
+<body>
+
+<!-- ログイン画面（ログインするまでスコアは動かせない） -->
+<div class="gate" id="gate" hidden>
+  <form id="loginForm" autocomplete="on">
+    <h2>OSG スコアボード 操作画面</h2>
+    <p class="note" id="gateNote">配信チームのメールアドレスとパスワードでログインしてください。</p>
+    <label>メールアドレス<input type="email" id="email" autocomplete="username" required></label>
+    <label>パスワード<input type="password" id="pass" autocomplete="current-password" required></label>
+    <p class="err" id="loginErr"></p>
+    <button class="go" type="submit" id="loginBtn">ログイン</button>
+  </form>
+</div>
+
+<div class="wrap" id="app">
+  <header>
+    <h1><span class="live">● LIVE</span>OSG スコアボード<span class="court-tag" id="courtTag">COURT A</span></h1>
+    <div class="bar">
+      <span class="state" id="conn"><b></b><span>接続中…</span></span>
+      <button id="editBtn">レイアウト編集</button>
+      <button id="bgBtn">背景画像を読み込む</button>
+      <input type="file" id="bgFile" accept="image/*" hidden>
+      <a class="btn" id="overlayLink" href="overlay.html?court=A" target="_blank" rel="noopener"><button type="button">配信用ページを開く</button></a>
+      <button id="logout">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="monitors">
+    <div class="mon" id="draftMon">
+      <div class="mon-h"><span class="dot draft"></span><b>下書き</b>ここで編集します（視聴者には見えません）</div>
+      <div class="stage" id="draftStage"></div>
+    </div>
+    <div class="mon" id="liveMon">
+      <div class="mon-h"><span class="dot"></span><b>配信中の画面</b>視聴者に見えている表示</div>
+      <div class="stage is-live" id="liveStage"></div>
+    </div>
+  </div>
+
+  <div class="pub" id="pubBar">
+    <p id="pubMsg">下書きと配信中の表示は同じです</p>
+    <div class="bar">
+      <button id="discard">下書きを破棄</button>
+      <button id="publish" class="go">配信に反映</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Score<span>スコア操作</span><span class="chip now">押すと即時に配信</span></h2>
+      <div class="readout" id="readout"></div>
+      <div class="big">
+        <button id="ptA"><span id="ptAn"></span><small id="ptAp"></small></button>
+        <button id="ptB"><span id="ptBn"></span><small id="ptBp"></small></button>
+      </div>
+      <div class="row">
+        <button id="undo">↶ 取り消し</button>
+        <button id="srv">サーブ交代</button>
+        <button id="reset" class="warn">試合をリセット</button>
+      </div>
+      <button id="addResult">この試合の結果を「団体戦の結果」の下書きに追加</button>
+    </section>
+
+    <section class="card">
+      <h2>Match<span>試合設定</span><span class="chip drf">下書き</span></h2>
+      <div class="two">
+        <label>チームA<input type="text" id="tA"></label>
+        <label>チームB<input type="text" id="tB"></label>
+        <label>選手A（ダブルスは「渡邉・島」）<input type="text" id="pA"></label>
+        <label>選手B<input type="text" id="pB"></label>
+        <label>種目コード<input type="text" id="code" placeholder="S1 / S2 / D"></label>
+        <label>スコア枠ラベル<input type="text" id="lbl" placeholder="SINGLES 2"></label>
+      </div>
+      <label>選手情報（右下）の表示文<input type="text" id="pOverride" placeholder="空欄なら自動：S2 大矢祥生(OSG) vs 油布将也(LUCENT)"></label>
+      <div class="row">
+        <label>セット数（即時）<select id="sets"><option value="1">1セット</option><option value="3">3セット（2セット先取）</option><option value="5">5セット</option></select></label>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="noAd">ノーアドバンテージ</label>
+        <label class="chk"><input type="checkbox" id="tb">6-6でタイブレーク</label>
+        <label class="chk"><input type="checkbox" id="mtb">最終セットは10ポイントタイブレーク</label>
+      </div>
+      <p class="note">得点ルールは計算に使うため、変更するとすぐに適用されます。</p>
+    </section>
+
+    <section class="card">
+      <h2>Team results<span>団体戦の結果（1行に1試合）</span><span class="chip drf">下書き</span></h2>
+      <textarea id="results"></textarea>
+      <label class="chk"><input type="checkbox" id="resBand">背景の帯を付ける</label>
+    </section>
+
+    <section class="card">
+      <h2>Free text<span>自由テキスト</span><span class="chip drf">下書き</span></h2>
+      <textarea id="free" placeholder="例：次の試合は 14:30 開始予定です"></textarea>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="freeBand">帯スタイル</label>
+        <label class="chk"><input type="checkbox" id="freeOn">表示する</label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Layout<span>位置と大きさ</span><span class="chip drf">下書き</span></h2>
+      <div class="lay" id="lay"></div>
+      <p class="note">「レイアウト編集」を押すと、下書き画面の各パーツをドラッグで移動、右下の丸で拡大・縮小できます。文字やレイアウトの変更は「配信に反映」を押すまで視聴者には見えません。</p>
+    </section>
+  </div>
+</div>
+
+<script type="module" src="js/control.js"></script>
+</body>
+</html>

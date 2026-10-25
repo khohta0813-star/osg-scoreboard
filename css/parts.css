@@ -1,0 +1,37 @@
+/* 配信に映るパーツの見た目。control.html のプレビューと overlay.html が
+   同じ見え方になるよう、この1枚を両方で読み込む。
+   座標・サイズは 1920x1080 のキャンバス基準のピクセル値。 */
+:root{
+  color-scheme: dark;
+  --navy:#0f1f3d; --navy-2:#162a4f; --line:#2a4170;
+  --lime:#d4ef3a; --ink:#eef2f8; --mute:#93a3c0;
+  --danger:#e5484d; --amber:#f5b83d;
+  --f-num:"Barlow Condensed","Noto Sans JP",system-ui,sans-serif;
+  --f-jp:"Noto Sans JP",system-ui,sans-serif;
+}
+
+/* キャンバス本体。親の .stage に合わせて transform で拡縮する */
+.cv{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.court{position:absolute;inset:0;width:100%;height:100%}
+.w{position:absolute;transform-origin:0 0;user-select:none}
+
+/* overlay parts (canvas pixels) */
+.outl{color:#fff;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 6px rgba(0,0,0,.6);font-family:var(--f-jp);font-weight:700}
+.results{font-size:38px;line-height:1.3;white-space:pre}
+.results.band div{background:rgba(0,0,0,.55);padding:0 14px;margin-bottom:4px;width:max-content}
+.player{font-size:40px;white-space:pre}
+.free{font-size:40px;white-space:pre-wrap;max-width:1400px}
+.free.band{background:rgba(15,31,61,.88);padding:10px 22px;border-left:8px solid var(--lime);text-shadow:none}
+.bug{display:grid;gap:8px;background:#0b0b0d;padding:14px;font-family:var(--f-num);align-items:center}
+.bug .nm{background:#4a4d55;color:#fff;font-weight:700;font-size:48px;height:96px;display:flex;align-items:center;justify-content:center;padding:0 16px;position:relative;letter-spacing:.02em}
+.bug .nm.win{background:var(--lime);color:#0b0b0d}
+.bug .srv{position:absolute;right:-14px;bottom:-12px;width:26px;height:26px;border-radius:50%;background:#e8f53a;box-shadow:0 0 0 3px #0b0b0d}
+.bug .pt{background:#fff;color:#0b0b0d;font-weight:800;font-size:96px;height:96px;display:flex;align-items:center;justify-content:center;line-height:1}
+.bug .st{border:3px solid #9aa0aa;color:#fff;font-weight:700;font-size:88px;height:96px;display:flex;align-items:center;justify-content:center;line-height:1;position:relative}
+.bug .st.cur{border-color:#fff}
+.bug .st sup{position:absolute;right:4px;top:4px;font-size:28px}
+.bug .lbl{background:#fff;color:#0b0b0d;font-weight:700;font-size:26px;text-align:center;letter-spacing:.06em;height:34px;line-height:34px}
+.bug .sh{color:#fff;font-weight:700;font-size:24px;text-align:center;letter-spacing:.04em}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
