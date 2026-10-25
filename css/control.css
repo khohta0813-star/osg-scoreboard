@@ -45,9 +45,16 @@ a.btn{display:inline-block;text-decoration:none}
 
 /* レイアウト編集中の見た目 */
 .edit .w{outline:3px dashed rgba(212,239,58,.85);outline-offset:6px;cursor:move;touch-action:none}
-.w .hdl{display:none;position:absolute;right:-22px;bottom:-22px;width:34px;height:34px;background:var(--lime);border-radius:50%;cursor:nwse-resize;touch-action:none;border:4px solid var(--navy)}
+.w .hdl{display:none;position:absolute;width:34px;height:34px;background:var(--lime);border-radius:50%;cursor:nwse-resize;touch-action:none;border:4px solid var(--navy)}
 .edit .w .hdl{display:block}
-.w .tag{display:none;position:absolute;left:0;top:-46px;background:var(--lime);color:var(--navy);font:700 22px var(--f-jp);padding:2px 10px;border-radius:6px;white-space:nowrap}
+/* つまみは、基準にしている隅の「反対側」に付ける（そこが拡大で動く角） */
+.a-tl .hdl{right:-22px;bottom:-22px}
+.a-tr .hdl{left:-22px;bottom:-22px}
+.a-br .hdl{left:-22px;top:-22px}
+.a-bl .hdl{right:-22px;top:-22px}
+.w .tag{display:none;position:absolute;top:-46px;background:var(--lime);color:var(--navy);font:700 22px var(--f-jp);padding:2px 10px;border-radius:6px;white-space:nowrap}
+.a-tl .tag,.a-bl .tag{left:0}
+.a-tr .tag,.a-br .tag{right:0}
 .edit .w .tag{display:block}
 
 /* panels */
@@ -66,11 +73,20 @@ a.btn{display:inline-block;text-decoration:none}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .row>*{flex:1 1 auto}
 label{font-size:13px;color:var(--mute);display:flex;flex-direction:column;gap:4px;min-width:0}
-input[type=text],input[type=email],input[type=password],textarea,select{font:inherit;font-size:15px;color:var(--ink);background:var(--navy);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;box-sizing:border-box}
+input[type=text],input[type=email],input[type=password],input[type=number],textarea,select{font:inherit;font-size:15px;color:var(--ink);background:var(--navy);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;box-sizing:border-box}
 textarea{min-height:96px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .chk{flex-direction:row;align-items:center;gap:6px;color:var(--ink);font-size:14px}
-.lay{display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:center;font-size:14px}
+/* 位置と大きさのカード。パーツごとに1行 */
+.lay{display:flex;flex-direction:column;gap:10px;font-size:14px}
+.lay-row{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+.lay-row:first-child{border-top:0;padding-top:0}
+.lay-row>.chk small{color:var(--mute);font-size:11px;font-weight:400;margin-left:2px}
+.lay-ctl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px}
+.lay-ctl label{font-size:11px;flex:0 0 auto}
+.lay-ctl input[type=number]{width:78px}
+.lay-ctl .lay-size{flex:1 1 130px;min-width:110px}
+.lay-ctl button{flex:0 0 auto}
 .lay input[type=range]{width:100%;accent-color:var(--lime)}
 .note{font-size:12px;color:var(--mute);line-height:1.6;margin:0}
 

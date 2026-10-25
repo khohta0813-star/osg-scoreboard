@@ -8,7 +8,7 @@
        「配信に反映」で draft を pub にコピーして初めて視聴者に出る */
 
 import {
-  PARTS, clone, oth, defaultState, defaultDisplay, normalize,
+  PARTS, ANCHOR, clone, oth, defaultState, normalize,
   addPoint, ptText, setStr, resultLine,
   mountCanvas, renderCanvas, place, fit,
 } from './parts.js';
@@ -184,16 +184,18 @@ stages.draft.querySelectorAll('.w').forEach(w => {
   w.addEventListener('pointerdown', e => {
     if (!editing) return;
     e.preventDefault();
-    const L = D().lay[w.dataset.id], S = stages.draft.S,
-      sx = e.clientX, sy = e.clientY, ox = L.x, oy = L.y, os = L.s;
+    const id = w.dataset.id, L = D().lay[id], S = stages.draft.S,
+      sx = e.clientX, sy = e.clientY, odx = L.dx, ody = L.dy, os = L.s;
     const resize = e.target.classList.contains('hdl'), natW = w.offsetWidth;
+    // 右端・下端を基準にしているパーツは、つまみが内側に付くので向きが逆になる
+    const grow = ANCHOR[id].h === 'left' ? 1 : -1;
     w.setPointerCapture(e.pointerId);
     const mv = ev => {
       const dx = (ev.clientX - sx) / S, dy = (ev.clientY - sy) / S;
-      if (resize) L.s = Math.max(.3, Math.min(3, (natW * os + dx) / natW));
+      if (resize) L.s = Math.max(.3, Math.min(3, (natW * os + grow * dx) / natW));
       else {
-        L.x = Math.round(Math.max(-50, Math.min(1900, ox + dx)));
-        L.y = Math.round(Math.max(-50, Math.min(1060, oy + dy)));
+        L.dx = Math.round(Math.max(-1800, Math.min(1800, odx + dx)));
+        L.dy = Math.round(Math.max(-1000, Math.min(1000, ody + dy)));
       }
       place(w, L);
     };
@@ -215,28 +217,50 @@ $('editBtn').onclick = () => {
   $('editBtn').textContent = editing ? '編集を終了' : 'レイアウト編集';
 };
 
+/* 位置は「初期位置からのずれ」で持つ。0 が初期位置で、
+   プラスにすると右・下へ動く（配信画面 1920x1080 換算のピクセル） */
+const CORNER = { results: '左上', bug: '右上', player: '右下', free: '左下' };
+const clampOff = (v, max) => Math.round(Math.max(-max, Math.min(max, Number(v) || 0)));
+
 function renderLay() {
   const box = $('lay');
   if (!box.childElementCount) {
     PARTS.forEach(([id, name]) => {
-      const c = document.createElement('label'); c.className = 'chk';
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = 'v_' + id;
-      c.append(cb, name);
-      const r = document.createElement('input');
-      r.type = 'range'; r.min = .3; r.max = 3; r.step = .05; r.id = 's_' + id;
-      r.setAttribute('aria-label', name + 'の大きさ');
-      const b = document.createElement('button'); b.textContent = '初期位置'; b.id = 'r_' + id;
-      box.append(c, r, b);
-      cb.onchange = e => { D().lay[id].v = e.target.checked; commitDraft(); };
-      r.oninput = e => {
-        D().lay[id].s = +e.target.value;
-        place(stages.draft.querySelector(`.w[data-id=${id}]`), D().lay[id]);
+      const row = document.createElement('div');
+      row.className = 'lay-row';
+      row.innerHTML = `
+        <label class="chk"><input type="checkbox" id="v_${id}">${name}<small>${CORNER[id]}が基準</small></label>
+        <div class="lay-ctl">
+          <label>横のずれ<input type="number" id="x_${id}" step="10" inputmode="numeric"></label>
+          <label>縦のずれ<input type="number" id="y_${id}" step="10" inputmode="numeric"></label>
+          <label class="lay-size">大きさ<input type="range" id="s_${id}" min=".3" max="3" step=".05" aria-label="${name}の大きさ"></label>
+          <button type="button" id="r_${id}">初期位置</button>
+        </div>`;
+      box.appendChild(row);
+
+      const redraw = () => place(stages.draft.querySelector(`.w[data-id=${id}]`), D().lay[id]);
+      $('v_' + id).onchange = e => { D().lay[id].v = e.target.checked; commitDraft(); };
+      $('x_' + id).oninput = e => { D().lay[id].dx = clampOff(e.target.value, 1800); redraw(); };
+      $('y_' + id).oninput = e => { D().lay[id].dy = clampOff(e.target.value, 1000); redraw(); };
+      $('x_' + id).onchange = commitDraft;
+      $('y_' + id).onchange = commitDraft;
+      $('s_' + id).oninput = e => { D().lay[id].s = +e.target.value; redraw(); };
+      $('s_' + id).onchange = commitDraft;
+      $('r_' + id).onclick = () => {
+        const L = D().lay[id];
+        L.dx = 0; L.dy = 0; L.s = 1;
+        commitDraft();
       };
-      r.onchange = commitDraft;
-      b.onclick = () => { D().lay[id] = clone(defaultDisplay(court).lay[id]); commitDraft(); };
     });
   }
-  PARTS.forEach(([id]) => { $('v_' + id).checked = D().lay[id].v; $('s_' + id).value = D().lay[id].s; });
+  PARTS.forEach(([id]) => {
+    const L = D().lay[id];
+    $('v_' + id).checked = L.v;
+    $('s_' + id).value = L.s;
+    // 入力中の欄は書き換えない
+    if (document.activeElement !== $('x_' + id)) $('x_' + id).value = L.dx;
+    if (document.activeElement !== $('y_' + id)) $('y_' + id).value = L.dy;
+  });
 }
 
 /* ---------- 入力欄との結びつけ ---------- */

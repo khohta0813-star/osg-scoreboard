@@ -12,6 +12,17 @@ export const PARTS = [
   ['free', '自由テキスト'],
 ];
 
+/* 各パーツを画面のどの隅から測るか。
+   配信の四隅を基準にすることで、セット数が増えてスコア枠が横に伸びても
+   画面の外にはみ出さない。x/y は隅からの余白（1920x1080 換算のピクセル）で、
+   テレビで端が切れても欠けないよう、やや内側に取ってある。 */
+export const ANCHOR = {
+  results: { h: 'left', v: 'top', x: 80, y: 80 },
+  bug: { h: 'right', v: 'top', x: 80, y: 80 },
+  player: { h: 'right', v: 'bottom', x: 80, y: 80 },
+  free: { h: 'left', v: 'bottom', x: 80, y: 80 },
+};
+
 /* 取り消し（undo）用の履歴の上限。
    履歴は1回の得点ごとに Firebase へ書き込むので、試作版の150より控えめにしている。 */
 export const HIST_MAX = 50;
@@ -31,11 +42,13 @@ export function defaultDisplay(court = 'A') {
     free: `第41回 テニス日本リーグ ｜ コート${court}`,
     freeBand: true,
     freeOn: false,
+    /* dx / dy は初期位置からのずれ。0 が初期位置で、
+       プラスにすると右・下へ動く（1920x1080 換算のピクセル）。 */
     lay: {
-      results: { x: 12, y: 24, s: 1, v: true },
-      bug: { x: 1500, y: 60, s: 1, v: true },
-      player: { x: 1180, y: 1010, s: 1, v: true },
-      free: { x: 24, y: 990, s: 0.9, v: true },
+      results: { dx: 0, dy: 0, s: 1, v: true },
+      bug: { dx: 0, dy: 0, s: 1, v: true },
+      player: { dx: 0, dy: 0, s: 1, v: true },
+      free: { dx: 0, dy: 0, s: 1, v: true },
     },
   };
 }
@@ -101,7 +114,21 @@ export function normalize(raw, court = 'A') {
   }));
   st.sc.win = raw && raw.sc && raw.sc.win ? raw.sc.win : null;
   st.rules.sets = Number(st.rules.sets) || 3;
+  fixLay(st.draft);
+  fixLay(st.pub);
   return st;
+}
+
+/* 位置・大きさを数値に直す。古い形式（x / y を持つもの）は初期位置に戻る */
+function fixLay(d) {
+  for (const [id] of PARTS) {
+    const L = d.lay[id];
+    L.dx = Math.round(Number(L.dx) || 0);
+    L.dy = Math.round(Number(L.dy) || 0);
+    L.s = Math.min(3, Math.max(0.3, Number(L.s) || 1));
+    L.v = !!L.v;
+  }
+  return d;
 }
 
 /* ---------- テニスの得点計算 ---------- */
@@ -217,8 +244,10 @@ export function mountCanvas(stage, opt = {}) {
   cv.className = 'cv';
   if (opt.court) cv.innerHTML = COURT_SVG;
   for (const [id, name] of PARTS) {
+    const a = ANCHOR[id];
     const w = document.createElement('div');
-    w.className = 'w';
+    // a-tl / a-tr / a-br / a-bl … どの隅を基準にしているか（編集用のつまみの向きに使う）
+    w.className = 'w a-' + (a.v === 'top' ? 't' : 'b') + (a.h === 'left' ? 'l' : 'r');
     w.dataset.id = id;
     if (opt.editable) {
       const tag = document.createElement('span');
@@ -301,9 +330,18 @@ export function playerText(d) {
   return `${d.m.code} ${d.m.pA}(${d.teams.a}) vs ${d.m.pB}(${d.teams.b})`;
 }
 
+/* パーツを「基準の隅からの余白 ± ずれ」で置く。
+   拡大の基準点も同じ隅にするので、大きくしても画面の外へ出ていかない。 */
 export function place(w, L) {
-  w.style.left = L.x + 'px';
-  w.style.top = L.y + 'px';
+  const a = ANCHOR[w.dataset.id];
+  const dx = L.dx || 0,
+    dy = L.dy || 0;
+  w.style.left = w.style.right = w.style.top = w.style.bottom = '';
+  if (a.h === 'left') w.style.left = a.x + dx + 'px';
+  else w.style.right = a.x - dx + 'px';
+  if (a.v === 'top') w.style.top = a.y + dy + 'px';
+  else w.style.bottom = a.y - dy + 'px';
+  w.style.transformOrigin = `${a.h} ${a.v}`;
   w.style.transform = `scale(${L.s})`;
 }
 
