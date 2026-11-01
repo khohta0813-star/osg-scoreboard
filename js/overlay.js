@@ -1,5 +1,6 @@
 /* 配信用ページの中身。
-   courts/{コート}/pub と courts/{コート}/sc だけを読んで描画する。書き込みはしない。
+   courts/{コート}/pub・sc・rules だけを読んで描画する。書き込みはしない。
+   （rules はスコア枠をセット数ぶん出すために必要）
    直前の表示内容をブラウザに控えておき、配信を再起動した直後でもすぐ絵が出るようにしている。 */
 
 import { mountCanvas, renderCanvas, normalize, defaultState } from './parts.js';
@@ -23,14 +24,14 @@ draw();
 
 function draw() {
   const st = Object.keys(raw).length ? normalize(raw, court) : defaultState(court);
-  renderCanvas(stage, st.pub, st.sc);
+  renderCanvas(stage, st.pub, st.sc, st.rules);
 }
 
 function onChange(key, val) {
   raw[key] = val;
   draw();
   try {
-    localStorage.setItem(CACHE, JSON.stringify({ pub: raw.pub, sc: raw.sc }));
+    localStorage.setItem(CACHE, JSON.stringify({ pub: raw.pub, sc: raw.sc, rules: raw.rules }));
   } catch (e) {
     /* 控えに失敗しても表示には影響しない */
   }
@@ -39,6 +40,7 @@ function onChange(key, val) {
 if (isConfigured) {
   watchSub(court, 'pub', v => onChange('pub', v));
   watchSub(court, 'sc', v => onChange('sc', v));
+  watchSub(court, 'rules', v => onChange('rules', v));
 } else {
   console.error('[overlay] js/firebase-config.js に Firebase の接続情報が入っていません');
 }

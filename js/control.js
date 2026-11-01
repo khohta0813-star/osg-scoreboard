@@ -90,8 +90,8 @@ mountCanvas(stages.live, { court: true });
 /* ---------- 描画 ---------- */
 const dirty = () => JSON.stringify(st.draft) !== JSON.stringify(st.pub);
 function render() {
-  renderCanvas(stages.draft, st.draft, st.sc);
-  renderCanvas(stages.live, st.pub, st.sc);
+  renderCanvas(stages.draft, st.draft, st.sc, st.rules);
+  renderCanvas(stages.live, st.pub, st.sc, st.rules);
   const sc = st.sc, t = st.pub.teams, m = st.pub.m;
   $('ptAn').textContent = t.a; $('ptBn').textContent = t.b;
   $('ptAp').textContent = m.pA; $('ptBp').textContent = m.pB;
@@ -233,9 +233,10 @@ function renderLay() {
         <div class="lay-ctl">
           <label>横のずれ<input type="number" id="x_${id}" step="10" inputmode="numeric"></label>
           <label>縦のずれ<input type="number" id="y_${id}" step="10" inputmode="numeric"></label>
-          <label class="lay-size">大きさ<input type="range" id="s_${id}" min=".3" max="3" step=".05" aria-label="${name}の大きさ"></label>
+          <label>大きさ %<input type="number" id="p_${id}" step="5" min="30" max="300" inputmode="numeric"></label>
           <button type="button" id="r_${id}">初期位置</button>
-        </div>`;
+        </div>
+        <input type="range" class="lay-range" id="s_${id}" min=".3" max="3" step=".01" aria-label="${name}の大きさ">`;
       box.appendChild(row);
 
       const redraw = () => place(stages.draft.querySelector(`.w[data-id=${id}]`), D().lay[id]);
@@ -244,8 +245,17 @@ function renderLay() {
       $('y_' + id).oninput = e => { D().lay[id].dy = clampOff(e.target.value, 1000); redraw(); };
       $('x_' + id).onchange = commitDraft;
       $('y_' + id).onchange = commitDraft;
-      $('s_' + id).oninput = e => { D().lay[id].s = +e.target.value; redraw(); };
+      const setScale = v => {
+        D().lay[id].s = Math.min(3, Math.max(0.3, v));
+        $('s_' + id).value = D().lay[id].s;
+        $('p_' + id).value = Math.round(D().lay[id].s * 100);
+        redraw();
+      };
+      // スライダーと % の入力欄は同じ値を指す
+      $('s_' + id).oninput = e => setScale(+e.target.value);
       $('s_' + id).onchange = commitDraft;
+      $('p_' + id).oninput = e => { D().lay[id].s = Math.min(3, Math.max(0.3, (Number(e.target.value) || 100) / 100)); $('s_' + id).value = D().lay[id].s; redraw(); };
+      $('p_' + id).onchange = commitDraft;
       $('r_' + id).onclick = () => {
         const L = D().lay[id];
         L.dx = 0; L.dy = 0; L.s = 1;
@@ -257,6 +267,7 @@ function renderLay() {
     const L = D().lay[id];
     $('v_' + id).checked = L.v;
     $('s_' + id).value = L.s;
+    if (document.activeElement !== $('p_' + id)) $('p_' + id).value = Math.round(L.s * 100);
     // 入力中の欄は書き換えない
     if (document.activeElement !== $('x_' + id)) $('x_' + id).value = L.dx;
     if (document.activeElement !== $('y_' + id)) $('y_' + id).value = L.dy;
@@ -281,6 +292,7 @@ const draftChecks = [
   ['resBand', v => D().resBand = v, () => D().resBand],
   ['freeBand', v => D().freeBand = v, () => D().freeBand],
   ['freeOn', v => D().freeOn = v, () => D().freeOn],
+  ['playerBand', v => D().playerBand = v, () => D().playerBand],
 ];
 const ruleChecks = [
   ['noAd', v => st.rules.noAd = v, () => st.rules.noAd],
@@ -289,12 +301,19 @@ const ruleChecks = [
 ];
 draftChecks.forEach(([id, set]) => $(id).addEventListener('change', e => { set(e.target.checked); commitDraft(); }));
 ruleChecks.forEach(([id, set]) => $(id).addEventListener('change', e => { set(e.target.checked); commitRules(); }));
-$('sets').onchange = e => { st.rules.sets = +e.target.value; commitRules(); };
+$('fmt').onchange = e => {
+  const [sets, games] = e.target.value.split('-').map(Number);
+  st.rules.sets = sets;
+  st.rules.games = games;
+  commitRules();
+};
 
 function fillForm() {
   binds.forEach(([id, , get]) => { if (document.activeElement !== $(id)) $(id).value = get(); });
   draftChecks.concat(ruleChecks).forEach(([id, , get]) => ($(id).checked = get()));
-  $('sets').value = String(st.rules.sets);
+  const fmt = `${st.rules.sets}-${st.rules.games}`;
+  if ([...$('fmt').options].some(o => o.value === fmt)) $('fmt').value = fmt;
+  $('tbLbl').textContent = `${st.rules.games}-${st.rules.games}でタイブレーク`;
 }
 
 /* ---------- ボタン ---------- */

@@ -85,7 +85,7 @@ textarea{min-height:96px;resize:vertical}
 .lay-ctl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px}
 .lay-ctl label{font-size:11px;flex:0 0 auto}
 .lay-ctl input[type=number]{width:78px}
-.lay-ctl .lay-size{flex:1 1 130px;min-width:110px}
+.lay-range{width:100%;accent-color:var(--lime);margin:0}
 .lay-ctl button{flex:0 0 auto}
 .lay input[type=range]{width:100%;accent-color:var(--lime)}
 .note{font-size:12px;color:var(--mute);line-height:1.6;margin:0}

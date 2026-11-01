@@ -85,15 +85,21 @@
         <label>スコア枠ラベル<input type="text" id="lbl" placeholder="SINGLES 2"></label>
       </div>
       <label>選手情報（右下）の表示文<input type="text" id="pOverride" placeholder="空欄なら自動：S2 大矢祥生(OSG) vs 油布将也(LUCENT)"></label>
+      <label class="chk"><input type="checkbox" id="playerBand">選手情報に背景の帯を付ける</label>
       <div class="row">
-        <label>セット数（即時）<select id="sets"><option value="1">1セット</option><option value="3">3セット（2セット先取）</option><option value="5">5セット</option></select></label>
+        <label>試合形式（即時）<select id="fmt">
+          <option value="1-6">1セットマッチ（6ゲーム先取）</option>
+          <option value="3-6">3セットマッチ（2セット先取）</option>
+          <option value="5-6">5セットマッチ（3セット先取）</option>
+          <option value="1-8">8ゲームマッチ（8ゲーム先取）</option>
+        </select></label>
       </div>
       <div class="row">
         <label class="chk"><input type="checkbox" id="noAd">ノーアドバンテージ</label>
-        <label class="chk"><input type="checkbox" id="tb">6-6でタイブレーク</label>
+        <label class="chk"><input type="checkbox" id="tb"><span id="tbLbl">6-6でタイブレーク</span></label>
         <label class="chk"><input type="checkbox" id="mtb">最終セットは10ポイントタイブレーク</label>
       </div>
-      <p class="note">得点ルールは計算に使うため、変更するとすぐに適用されます。</p>
+      <p class="note">得点ルールは計算に使うため、変更するとすぐに適用されます。8ゲームマッチは「8ゲーム先取」＋「8-8でタイブレーク」で、8オールから7ポイントタイブレークになります。</p>
     </section>
 
     <section class="card">

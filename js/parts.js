@@ -17,10 +17,10 @@ export const PARTS = [
    画面の外にはみ出さない。x/y は隅からの余白（1920x1080 換算のピクセル）で、
    テレビで端が切れても欠けないよう、やや内側に取ってある。 */
 export const ANCHOR = {
-  results: { h: 'left', v: 'top', x: 80, y: 80 },
-  bug: { h: 'right', v: 'top', x: 80, y: 80 },
-  player: { h: 'right', v: 'bottom', x: 80, y: 80 },
-  free: { h: 'left', v: 'bottom', x: 80, y: 80 },
+  results: { h: 'left', v: 'top', x: 48, y: 48 },
+  bug: { h: 'right', v: 'top', x: 48, y: 48 },
+  player: { h: 'right', v: 'bottom', x: 48, y: 48 },
+  free: { h: 'left', v: 'bottom', x: 48, y: 48 },
 };
 
 /* 取り消し（undo）用の履歴の上限。
@@ -39,6 +39,7 @@ export function defaultDisplay(court = 'A') {
     m: { code: 'S1', lbl: 'SINGLES 1', pA: '', pB: '', override: '' },
     results: '',
     resBand: false,
+    playerBand: false,
     free: `第41回 テニス日本リーグ ｜ コート${court}`,
     freeBand: true,
     freeOn: false,
@@ -62,7 +63,7 @@ export function defaultState(court = 'A') {
   return {
     draft: defaultDisplay(court),
     pub: defaultDisplay(court),
-    rules: { sets: 3, noAd: false, tb: true, mtb: false },
+    rules: { sets: 3, games: 6, noAd: false, tb: true, mtb: false },
     sc: emptyScore(),
     hist: [],
   };
@@ -113,7 +114,8 @@ export function normalize(raw, court = 'A') {
     mtb: !!r.mtb,
   }));
   st.sc.win = raw && raw.sc && raw.sc.win ? raw.sc.win : null;
-  st.rules.sets = Number(st.rules.sets) || 3;
+  st.rules.sets = [1, 3, 5].includes(Number(st.rules.sets)) ? Number(st.rules.sets) : 3;
+  st.rules.games = Number(st.rules.games) === 8 ? 8 : 6;
   fixLay(st.draft);
   fixLay(st.pub);
   return st;
@@ -153,8 +155,9 @@ export function addPoint(st, side) {
       sc.g[side]++;
       sc.p = { a: 0, b: 0 };
       sc.srv = oth(sc.srv);
-      if (sc.g[side] >= 6 && sc.g[side] - sc.g[o] >= 2) endSet(st, side, false);
-      else if (sc.g.a === 6 && sc.g.b === 6 && st.rules.tb) {
+      const need = st.rules.games; // 通常は6ゲーム、8ゲームマッチなら8
+      if (sc.g[side] >= need && sc.g[side] - sc.g[o] >= 2) endSet(st, side, false);
+      else if (sc.g.a === need && sc.g.b === need && st.rules.tb) {
         sc.tb = true;
         sc.tbFirst = sc.srv;
       }
@@ -296,10 +299,12 @@ function cell(cls, txt, sup) {
   return d;
 }
 
-function renderBug(el, d, sc) {
+function renderBug(el, d, sc, rules) {
   el.textContent = '';
   const cols = sc.done.map(r => ({ r }));
   if (!sc.win) cols.push({ cur: true, mtb: sc.mtb });
+  // 試合形式のセット数ぶんは最初から枠を出す。試合中に幅が変わらない
+  while (cols.length < rules.sets) cols.push({ empty: true });
   el.style.gridTemplateColumns = `190px 112px ${cols.map(() => '72px').join(' ')}`;
   for (const row of ['a', 'mid', 'b']) {
     if (row === 'mid') {
@@ -317,7 +322,8 @@ function renderBug(el, d, sc) {
         const r = c.r;
         const lose = r.tb && !r.mtb && r[row] < r[oth(row)] ? r.tb[row] : null;
         el.appendChild(cell('st', r.mtb ? r.tb[row] : r[row], lose));
-      } else el.appendChild(cell('st cur', c.mtb ? sc.p[row] : sc.g[row]));
+      } else if (c.empty) el.appendChild(cell('st', ''));
+      else el.appendChild(cell('st cur', c.mtb ? sc.p[row] : sc.g[row]));
     });
   }
 }
@@ -345,10 +351,10 @@ export function place(w, L) {
   w.style.transform = `scale(${L.s})`;
 }
 
-/* d … 表示内容（draft か pub）、sc … スコア */
-export function renderCanvas(stage, d, sc) {
+/* d … 表示内容（draft か pub）、sc … スコア、rules … 試合形式（セット枠の数に使う） */
+export function renderCanvas(stage, d, sc, rules) {
   const q = s => stage.querySelector(s);
-  renderBug(q('.bug'), d, sc);
+  renderBug(q('.bug'), d, sc, rules);
 
   const r = q('.results');
   r.textContent = '';
@@ -362,8 +368,10 @@ export function renderCanvas(stage, d, sc) {
       r.appendChild(x);
     });
 
+  const p = q('.player');
   const ptxt = playerText(d);
-  q('.player').textContent = ptxt;
+  p.textContent = ptxt;
+  p.classList.toggle('band', !!d.playerBand);
 
   const f = q('.free');
   f.textContent = d.free;
