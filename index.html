@@ -35,12 +35,15 @@
 </div>
 
 <script type="module">
+import { isConfigured, readCourtName } from './js/db.js';
+
 const box = document.getElementById('courts');
 const base = location.href.replace(/\/[^/]*$/, '/');
 
 for (const c of ['A', 'B']) {
   const sec = document.createElement('section');
   sec.className = 'card';
+  sec.dataset.court = c;
   sec.innerHTML = `
     <h3>COURT ${c}</h3>
     <a class="btn" href="control.html?court=${c}"><button type="button" class="go">操作画面を開く</button></a>
@@ -51,6 +54,18 @@ for (const c of ['A', 'B']) {
       <a class="btn" href="overlay.html?court=${c}" target="_blank" rel="noopener"><button type="button">配信用ページを確認</button></a>
     </div>`;
   box.appendChild(sec);
+}
+
+/* コートごとに付けた表示名があれば見出しに使う（操作画面の「コート表示名」） */
+if (isConfigured) {
+  for (const c of ['A', 'B']) {
+    readCourtName(c).then(name => {
+      if (name && name.trim()) {
+        const h = box.querySelector(`[data-court="${c}"] h3`);
+        if (h) h.textContent = name.trim();
+      }
+    });
+  }
 }
 
 box.addEventListener('click', async e => {

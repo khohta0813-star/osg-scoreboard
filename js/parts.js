@@ -66,6 +66,7 @@ export function defaultState(court = 'A') {
     rules: { sets: 3, games: 6, noAd: false, tb: true, mtb: false },
     sc: emptyScore(),
     hist: [],
+    name: '', // コート表示名。空欄なら「COURT 〇」と出る
   };
 }
 
@@ -106,6 +107,7 @@ export function normalize(raw, court = 'A') {
     rules: fill(raw && raw.rules, def.rules),
     sc: fill(raw && raw.sc, def.sc),
     hist: toArray(raw && raw.hist),
+    name: raw && typeof raw.name === 'string' ? raw.name : '',
   };
   st.sc.done = toArray(raw && raw.sc && raw.sc.done).map(r => ({
     a: Number(r.a) || 0,

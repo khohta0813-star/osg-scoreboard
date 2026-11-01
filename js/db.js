@@ -59,6 +59,16 @@ export function writeMany(court, obj) {
   return update(courtRef(court), obj);
 }
 
+/* コートの表示名だけを読む（入口ページ用） */
+export async function readCourtName(court) {
+  try {
+    const snap = await get(courtRef(court, 'name'));
+    return typeof snap.val() === 'string' ? snap.val() : '';
+  } catch (e) {
+    return '';
+  }
+}
+
 /* コートのデータがまだ無ければ初期値を入れる（ログイン済みのときだけ成功する） */
 export async function seedIfEmpty(court, initial) {
   const snap = await get(courtRef(court));

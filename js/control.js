@@ -22,7 +22,7 @@ const $ = id => document.getElementById(id);
 const court = courtId();
 const D = () => st.draft;
 
-$('courtTag').textContent = 'COURT ' + court;
+const courtLabel = () => st.name.trim() || 'COURT ' + court;
 $('overlayLink').href = `overlay.html?court=${court}`;
 document.title = `OSG LIVEスコアボード（コート${court}）`;
 
@@ -63,6 +63,7 @@ let seeding = false;
 /* 下書きは文字入力ごとに書かないよう、少しまとめてから送る */
 let draftTimer = null;
 let draftPending = false;
+let nameTimer = null;
 function wDraft() {
   draftPending = true;
   clearTimeout(draftTimer);
@@ -73,6 +74,7 @@ function wDraft() {
   }, 200);
 }
 const wPub = () => send(writeSub(court, 'pub', st.pub));
+const wName = () => send(writeSub(court, 'name', st.name));
 const wRules = () => send(writeSub(court, 'rules', st.rules));
 const wSc = () => send(writeSub(court, 'sc', st.sc));
 const wScHist = () => send(writeMany(court, { sc: st.sc, hist: st.hist.length ? st.hist : null }));
@@ -99,6 +101,8 @@ function render() {
   $('readout').textContent = sc.win
     ? `${t[sc.win]} の勝利　${sets}`
     : `${sets ? sets + '  ｜  ' : ''}${sc.g.a}-${sc.g.b}  ｜  ${ptText(st, 'a')}-${ptText(st, 'b')}${sc.tb ? (sc.mtb ? '  (10pt TB)' : '  (TB)') : ''}`;
+  $('courtTag').textContent = courtLabel();
+  document.title = `OSG LIVEスコアボード（${courtLabel()}）`;
   $('undo').disabled = !st.hist.length;
   const dt = dirty();
   $('pubBar').classList.toggle('dirty', dt);
@@ -124,6 +128,7 @@ if (isConfigured) {
     const next = normalize(raw, court);
     // 自分がいま入力している下書きは、送信待ちの間だけ手元の内容を優先する
     if (draftPending) next.draft = st.draft;
+    if (nameTimer) next.name = st.name;
     st = next;
     fillForm();
     render();
@@ -288,6 +293,14 @@ const binds = [
 ];
 binds.forEach(([id, set]) => $(id).addEventListener('input', e => { set(e.target.value); commitDraft(); }));
 
+/* コート表示名は配信には出ない表示用のラベルなので、下書きを通さず即時に保存する */
+$('courtName').addEventListener('input', e => {
+  st.name = e.target.value;
+  render();
+  clearTimeout(nameTimer);
+  nameTimer = setTimeout(() => { nameTimer = null; wName(); }, 300);
+});
+
 const draftChecks = [
   ['resBand', v => D().resBand = v, () => D().resBand],
   ['freeBand', v => D().freeBand = v, () => D().freeBand],
@@ -310,6 +323,7 @@ $('fmt').onchange = e => {
 
 function fillForm() {
   binds.forEach(([id, , get]) => { if (document.activeElement !== $(id)) $(id).value = get(); });
+  if (document.activeElement !== $('courtName')) $('courtName').value = st.name;
   draftChecks.concat(ruleChecks).forEach(([id, , get]) => ($(id).checked = get()));
   const fmt = `${st.rules.sets}-${st.rules.games}`;
   if ([...$('fmt').options].some(o => o.value === fmt)) $('fmt').value = fmt;
