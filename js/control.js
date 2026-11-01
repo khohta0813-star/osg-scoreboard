@@ -287,6 +287,8 @@ const binds = [
   ['pB', v => D().m.pB = v, () => D().m.pB],
   ['code', v => D().m.code = v, () => D().m.code],
   ['lbl', v => D().m.lbl = v, () => D().m.lbl],
+  ['bugNameSize', v => (D().bugNameSize = Math.min(64, Math.max(20, Number(v) || 48))), () => D().bugNameSize],
+  ['bugNameW', v => (D().bugNameW = Math.min(480, Math.max(120, Number(v) || 190))), () => D().bugNameW],
   ['pOverride', v => D().m.override = v, () => D().m.override],
   ['results', v => D().results = v, () => D().results],
   ['free', v => D().free = v, () => D().free],
@@ -382,3 +384,6 @@ window.addEventListener('resize', () => { fit(stages.draft); fit(stages.live); }
 
 fillForm();
 render();
+
+/* 文字の幅は書体が読み込まれると変わるので、読み込み後にもう一度描き直す */
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);

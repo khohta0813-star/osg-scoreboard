@@ -84,7 +84,10 @@
         <label>選手B<input type="text" id="pB"></label>
         <label>種目コード<input type="text" id="code" placeholder="S1 / S2 / D"></label>
         <label>スコア枠ラベル<input type="text" id="lbl" placeholder="SINGLES 2"></label>
+        <label>チーム名の文字サイズ<input type="number" id="bugNameSize" step="2" min="20" max="64" inputmode="numeric"></label>
+        <label>チーム名の枠の幅<input type="number" id="bugNameW" step="10" min="120" max="480" inputmode="numeric"></label>
       </div>
+      <p class="note">チーム名が枠に収まらないときは、折り返さずに自動で小さくなります（上下で大きさを揃えます）。長い名前を大きく出したいときは「枠の幅」を広げてください。</p>
       <label>選手情報（右下）の表示文<input type="text" id="pOverride" placeholder="空欄なら自動：S2 大矢祥生(OSG) vs 油布将也(LUCENT)"></label>
       <label class="chk"><input type="checkbox" id="playerBand">選手情報に背景の帯を付ける</label>
       <div class="row">

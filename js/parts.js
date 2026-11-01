@@ -37,6 +37,8 @@ export function defaultDisplay(court = 'A') {
   return {
     teams: { a: 'OSG', b: 'LUCENT' },
     m: { code: 'S1', lbl: 'SINGLES 1', pA: '', pB: '', override: '' },
+    bugNameSize: 48, // スコア速報のチーム名の文字サイズ
+    bugNameW: 190, //   同じくチーム名の枠の幅
     results: '',
     resBand: false,
     playerBand: false,
@@ -125,6 +127,8 @@ export function normalize(raw, court = 'A') {
 
 /* 位置・大きさを数値に直す。古い形式（x / y を持つもの）は初期位置に戻る */
 function fixLay(d) {
+  d.bugNameSize = Math.min(64, Math.max(20, Number(d.bugNameSize) || 48));
+  d.bugNameW = Math.min(480, Math.max(120, Number(d.bugNameW) || 190));
   for (const [id] of PARTS) {
     const L = d.lay[id];
     L.dx = Math.round(Number(L.dx) || 0);
@@ -307,7 +311,7 @@ function renderBug(el, d, sc, rules) {
   if (!sc.win) cols.push({ cur: true, mtb: sc.mtb });
   // 試合形式のセット数ぶんは最初から枠を出す。試合中に幅が変わらない
   while (cols.length < rules.sets) cols.push({ empty: true });
-  el.style.gridTemplateColumns = `190px 112px ${cols.map(() => '72px').join(' ')}`;
+  el.style.gridTemplateColumns = `${d.bugNameW}px 112px ${cols.map(() => '72px').join(' ')}`;
   for (const row of ['a', 'mid', 'b']) {
     if (row === 'mid') {
       el.appendChild(cell('lbl', d.m.lbl || ' '));
@@ -315,7 +319,10 @@ function renderBug(el, d, sc, rules) {
       cols.forEach((c, i) => el.appendChild(cell('sh', c.mtb || (c.r && c.r.mtb) ? 'TB' : 'SET ' + (i + 1))));
       continue;
     }
-    const nm = cell('nm' + (sc.win === row ? ' win' : ''), d.teams[row]);
+    const nm = cell('nm' + (sc.win === row ? ' win' : ''), '');
+    const nmt = cell('nmt', d.teams[row]);
+    nmt.style.fontSize = d.bugNameSize + 'px';
+    nm.appendChild(nmt);
     if (!sc.win && sc.srv === row) nm.appendChild(cell('srv', ''));
     el.appendChild(nm);
     el.appendChild(cell('pt', ptText({ sc }, row)));
@@ -328,6 +335,22 @@ function renderBug(el, d, sc, rules) {
       else el.appendChild(cell('st cur', c.mtb ? sc.p[row] : sc.g[row]));
     });
   }
+  fitNames(el, d.bugNameSize);
+}
+
+/* チーム名が枠からはみ出すときは、折り返さずに文字を小さくして収める。
+   上下のチームで大きさが揃うよう、縮める割合は小さいほうに合わせる。 */
+function fitNames(el, base) {
+  const names = [...el.querySelectorAll('.nmt')];
+  let size = base;
+  for (const t of names) {
+    const avail = t.parentElement.clientWidth - 32; // 左右の padding ぶん
+    if (avail <= 0) continue; // 非表示のときは測れないので触らない
+    t.style.fontSize = base + 'px';
+    const w = t.offsetWidth;
+    if (w > avail) size = Math.min(size, Math.max(14, Math.floor((base * avail) / w)));
+  }
+  for (const t of names) t.style.fontSize = size + 'px';
 }
 
 /* 選手情報の表示文。両選手が空欄のときは空文字を返し、パーツを隠す */

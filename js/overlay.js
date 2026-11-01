@@ -21,6 +21,8 @@ try {
   /* 使えなければ初期値のまま */
 }
 draw();
+/* 文字の幅は書体が読み込まれると変わるので、読み込み後にもう一度描き直す */
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
 
 function draw() {
   const st = Object.keys(raw).length ? normalize(raw, court) : defaultState(court);

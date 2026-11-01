@@ -25,7 +25,8 @@
 .free{font-size:40px;white-space:pre-wrap;max-width:1400px}
 .free.band{background:rgba(15,31,61,.88);padding:10px 22px;border-left:8px solid var(--lime);text-shadow:none}
 .bug{display:grid;gap:8px;background:#0b0b0d;padding:14px;font-family:var(--f-num);align-items:center}
-.bug .nm{background:#4a4d55;color:#fff;font-weight:700;font-size:48px;height:96px;display:flex;align-items:center;justify-content:center;padding:0 16px;position:relative;letter-spacing:.02em}
+.bug .nm{background:#4a4d55;color:#fff;font-weight:700;height:96px;display:flex;align-items:center;justify-content:center;padding:0 16px;position:relative;letter-spacing:.02em;overflow:hidden}
+.bug .nmt{font-size:48px;white-space:nowrap;line-height:1.1}
 .bug .nm.win{background:var(--lime);color:#0b0b0d}
 .bug .srv{position:absolute;right:-14px;bottom:-12px;width:26px;height:26px;border-radius:50%;background:#e8f53a;box-shadow:0 0 0 3px #0b0b0d}
 .bug .pt{background:#fff;color:#0b0b0d;font-weight:800;font-size:96px;height:96px;display:flex;align-items:center;justify-content:center;line-height:1}
