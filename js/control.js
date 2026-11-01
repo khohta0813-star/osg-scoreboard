@@ -61,6 +61,9 @@ if (!isConfigured) {
 
 /* ---------- 状態 ---------- */
 let st = defaultState(court);
+/* サーバーの内容をまだ一度も受け取っていない間は、手元の初期値で
+   サーバーを上書きしてしまわないよう、書き込みを一切しない。 */
+let loaded = false;
 let signedIn = false;
 let courtEmpty = false; // Firebase にこのコートのデータがまだ無い
 let seeding = false;
@@ -70,7 +73,14 @@ let seeding = false;
 let draftTimer = null;
 let draftPending = false;
 let nameTimer = null;
+/* 読み込みが終わるまでは書き込まない */
+function tooEarly() {
+  if (loaded) return false;
+  toast('読み込み中です。表示が出てから操作してください。');
+  return true;
+}
 function wDraft() {
+  if (tooEarly()) return;
   draftPending = true;
   clearTimeout(draftTimer);
   draftTimer = setTimeout(() => {
@@ -79,11 +89,12 @@ function wDraft() {
     send(writeSub(court, 'draft', st.draft));
   }, 200);
 }
-const wPub = () => send(writeSub(court, 'pub', st.pub));
-const wName = () => send(writeSub(court, 'name', st.name));
-const wRules = () => send(writeSub(court, 'rules', st.rules));
-const wSc = () => send(writeSub(court, 'sc', st.sc));
-const wScHist = () => send(writeMany(court, { sc: st.sc, hist: st.hist.length ? st.hist : null }));
+const wPub = () => (tooEarly() ? null : send(writeSub(court, 'pub', st.pub)));
+const wName = () => (tooEarly() ? null : send(writeSub(court, 'name', st.name)));
+const wRules = () => (tooEarly() ? null : send(writeSub(court, 'rules', st.rules)));
+const wSc = () => (tooEarly() ? null : send(writeSub(court, 'sc', st.sc)));
+const wScHist = () =>
+  tooEarly() ? null : send(writeMany(court, { sc: st.sc, hist: st.hist.length ? st.hist : null }));
 
 /* 画面に反映してから保存する */
 const commitDraft = () => { render(); wDraft(); };
@@ -120,26 +131,48 @@ function render() {
   renderLay();
 }
 
+/* 右上の状態表示。読み込み中はそちらを優先して出す */
+let connOk = null;
+function paintConn() {
+  const el = $('conn');
+  if (!loaded) {
+    el.className = 'state';
+    el.lastElementChild.textContent = '読み込み中…';
+    return;
+  }
+  el.className = 'state ' + (connOk === false ? 'off' : 'ok');
+  el.lastElementChild.textContent = connOk === false ? '接続待ち（復帰後に自動で戻ります）' : '同期中';
+}
+
+/* 読み込みが終わるまで操作できないようにする */
+function setLoaded(v) {
+  loaded = v;
+  $('app').classList.toggle('locked', !v);
+  paintConn();
+}
+setLoaded(false);
+
 /* ---------- Firebase と同期 ---------- */
 if (isConfigured) {
-  watchConnection(ok => {
-    const el = $('conn');
-    el.className = 'state ' + (ok ? 'ok' : 'off');
-    el.lastElementChild.textContent = ok ? '同期中' : '接続待ち（復帰後に自動で戻ります）';
-  });
+  watchConnection(ok => { connOk = ok; paintConn(); });
 
   watchCourt(court, raw => {
     courtEmpty = raw === null;
     if (courtEmpty) { maybeSeed(); return; }
     const next = normalize(raw, court);
-    // 自分がいま入力している下書きは、送信待ちの間だけ手元の内容を優先する
-    if (draftPending) next.draft = st.draft;
-    if (nameTimer) next.name = st.name;
+    // 自分がいま入力している下書きは、送信待ちの間だけ手元の内容を優先する。
+    // ただし最初の1回はサーバーの内容をそのまま受け取る（手元はまだ初期値のため）
+    if (loaded && draftPending) next.draft = st.draft;
+    if (loaded && nameTimer) next.name = st.name;
     st = next;
+    setLoaded(true);
     fillForm();
     render();
   });
+} else {
+  setLoaded(true); // Firebase 未設定のときは手元だけで動かす
 }
+
 
 async function maybeSeed() {
   if (!signedIn || !courtEmpty || seeding) return;
@@ -305,6 +338,7 @@ binds.forEach(([id, set]) => $(id).addEventListener('input', e => { set(e.target
 
 /* コート表示名は配信には出ない表示用のラベルなので、下書きを通さず即時に保存する */
 $('courtName').addEventListener('input', e => {
+  if (tooEarly()) { e.target.value = st.name; return; }
   st.name = e.target.value;
   render();
   clearTimeout(nameTimer);
