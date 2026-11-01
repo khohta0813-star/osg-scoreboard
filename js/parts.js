@@ -309,8 +309,10 @@ function renderBug(el, d, sc, rules) {
   el.textContent = '';
   const cols = sc.done.map(r => ({ r }));
   if (!sc.win) cols.push({ cur: true, mtb: sc.mtb });
-  // 試合形式のセット数ぶんは最初から枠を出す。試合中に幅が変わらない
-  while (cols.length < rules.sets) cols.push({ empty: true });
+  // 試合形式のセット数ぶんは最初から枠を出す。試合中に幅が変わらない。
+  // 最終セットが10ポイントタイブレークのときは、その枠は実際に始まってから出す
+  const slots = rules.sets - (rules.mtb ? 1 : 0);
+  while (cols.length < slots) cols.push({ empty: true });
   el.style.gridTemplateColumns = `${d.bugNameW}px 112px ${cols.map(() => '72px').join(' ')}`;
   for (const row of ['a', 'mid', 'b']) {
     if (row === 'mid') {
@@ -338,19 +340,17 @@ function renderBug(el, d, sc, rules) {
   fitNames(el, d.bugNameSize);
 }
 
-/* チーム名が枠からはみ出すときは、折り返さずに文字を小さくして収める。
-   上下のチームで大きさが揃うよう、縮める割合は小さいほうに合わせる。 */
+/* チーム名は枠に対して自動で大きさが決まる。収まっていれば指定サイズのまま、
+   はみ出すときだけ、はみ出した比率ぶん小さくする。チームごとに別々に計算するので、
+   短い名前（OSG など）は大きいまま残る。 */
 function fitNames(el, base) {
-  const names = [...el.querySelectorAll('.nmt')];
-  let size = base;
-  for (const t of names) {
+  for (const t of el.querySelectorAll('.nmt')) {
     const avail = t.parentElement.clientWidth - 32; // 左右の padding ぶん
     if (avail <= 0) continue; // 非表示のときは測れないので触らない
     t.style.fontSize = base + 'px';
     const w = t.offsetWidth;
-    if (w > avail) size = Math.min(size, Math.max(14, Math.floor((base * avail) / w)));
+    if (w > avail) t.style.fontSize = Math.max(14, Math.floor((base * avail) / w)) + 'px';
   }
-  for (const t of names) t.style.fontSize = size + 'px';
 }
 
 /* 選手情報の表示文。両選手が空欄のときは空文字を返し、パーツを隠す */
