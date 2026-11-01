@@ -42,6 +42,8 @@ export function defaultDisplay(court = 'A') {
     results: '',
     resBand: false,
     playerBand: false,
+    playerBandOpa: 100, // 帯の濃さ（100 で透過なし）
+    playerBandH: 10, //   帯の上下の余白＝縦の長さ
     free: `第41回 テニス日本リーグ ｜ コート${court}`,
     freeBand: true,
     freeOn: false,
@@ -126,7 +128,15 @@ export function normalize(raw, court = 'A') {
 }
 
 /* 位置・大きさを数値に直す。古い形式（x / y を持つもの）は初期位置に戻る */
+const clampNum = (v, lo, hi, def) => {
+  if (v === '' || v === null || v === undefined) return def;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
+};
+
 function fixLay(d) {
+  d.playerBandOpa = clampNum(d.playerBandOpa, 0, 100, 100);
+  d.playerBandH = clampNum(d.playerBandH, 0, 120, 10);
   d.bugNameSize = Math.min(64, Math.max(20, Number(d.bugNameSize) || 48));
   d.bugNameW = Math.min(480, Math.max(120, Number(d.bugNameW) || 190));
   for (const [id] of PARTS) {
@@ -397,6 +407,14 @@ export function renderCanvas(stage, d, sc, rules) {
   const ptxt = playerText(d);
   p.textContent = ptxt;
   p.classList.toggle('band', !!d.playerBand);
+  if (d.playerBand) {
+    // 濃さ（100 で透過なし）と、上下の余白＝帯の縦の長さ
+    p.style.backgroundColor = `rgba(15,31,61,${d.playerBandOpa / 100})`;
+    p.style.paddingTop = p.style.paddingBottom = d.playerBandH + 'px';
+  } else {
+    p.style.backgroundColor = '';
+    p.style.paddingTop = p.style.paddingBottom = '';
+  }
 
   const f = q('.free');
   f.textContent = d.free;

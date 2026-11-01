@@ -90,6 +90,10 @@
       <p class="note">チーム名が枠に収まらないときは、折り返さずに自動で小さくなります（上下で大きさを揃えます）。長い名前を大きく出したいときは「枠の幅」を広げてください。</p>
       <label>選手情報（右下）の表示文<input type="text" id="pOverride" placeholder="空欄なら自動：S2 大矢祥生(OSG) vs 油布将也(LUCENT)"></label>
       <label class="chk"><input type="checkbox" id="playerBand">選手情報に背景の帯を付ける</label>
+      <div class="two">
+        <label>帯の濃さ %（100で透過なし）<input type="number" id="playerBandOpa" step="5" min="0" max="100" inputmode="numeric"></label>
+        <label>帯の高さ（上下の余白）<input type="number" id="playerBandH" step="2" min="0" max="120" inputmode="numeric"></label>
+      </div>
       <div class="row">
         <label>試合形式（即時）<select id="fmt">
           <option value="1-6">1セットマッチ（6ゲーム先取）</option>

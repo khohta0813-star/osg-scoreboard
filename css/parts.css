@@ -21,7 +21,7 @@
 .results{font-size:38px;line-height:1.3;white-space:pre}
 .results.band div{background:rgba(0,0,0,.55);padding:0 14px;margin-bottom:4px;width:max-content}
 .player{font-size:40px;white-space:pre}
-.player.band{background:rgba(15,31,61,.88);padding:10px 22px;border-right:8px solid var(--lime);text-shadow:none}
+.player.band{background:rgba(15,31,61,1);padding:10px 22px;border-right:8px solid var(--lime);text-shadow:none}
 .free{font-size:40px;white-space:pre-wrap;max-width:1400px}
 .free.band{background:rgba(15,31,61,.88);padding:10px 22px;border-left:8px solid var(--lime);text-shadow:none}
 .bug{display:grid;gap:8px;background:#0b0b0d;padding:14px;font-family:var(--f-num);align-items:center}

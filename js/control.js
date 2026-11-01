@@ -19,6 +19,12 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 
 const $ = id => document.getElementById(id);
+/* 入力欄の数値を範囲内に収める。0 も有効な値なので || は使わない */
+const num = (v, lo, hi, def) => {
+  if (v === '' || v === null || v === undefined) return def;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
+};
 const court = courtId();
 const D = () => st.draft;
 
@@ -289,6 +295,8 @@ const binds = [
   ['lbl', v => D().m.lbl = v, () => D().m.lbl],
   ['bugNameSize', v => (D().bugNameSize = Math.min(64, Math.max(20, Number(v) || 48))), () => D().bugNameSize],
   ['bugNameW', v => (D().bugNameW = Math.min(480, Math.max(120, Number(v) || 190))), () => D().bugNameW],
+  ['playerBandOpa', v => (D().playerBandOpa = num(v, 0, 100, 100)), () => D().playerBandOpa],
+  ['playerBandH', v => (D().playerBandH = num(v, 0, 120, 10)), () => D().playerBandH],
   ['pOverride', v => D().m.override = v, () => D().m.override],
   ['results', v => D().results = v, () => D().results],
   ['free', v => D().free = v, () => D().free],
