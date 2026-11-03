@@ -13,7 +13,8 @@
 | --- | --- |
 | `index.html` | 入口。コートを選んで操作画面を開く／配信用URLをコピーする |
 | `control.html?court=A` | 操作画面。ログインが必要。スマホ可 |
-| `overlay.html?court=A` | 配信用。背景透明・操作UIなし。`pub` と `sc` だけを読む |
+| `overlay.html?court=A` | 配信用。背景透明・操作UIなし。`pub`・`sc`・`rules` だけを読む |
+| `stats.html` | スコア分析。ログインが必要 |
 
 コートは URL の `?court=` で切り替える（`A`、`B`、…）。大文字に統一され、コートごとにデータは別々。
 
@@ -38,6 +39,7 @@ courts/{コートID}/
 
 ```
 css/parts.css     配信に映るパーツの見た目（操作画面と配信用で共用）
+css/ui.css        操作画面・入口・分析ページの共通デザイン
 css/control.css   操作画面だけの見た目
 js/parts.js       データの形・得点計算・描画（両ページで共用）
 js/db.js          Firebase への接続と読み書き
@@ -60,11 +62,14 @@ database.rules.json    セキュリティルール
 ## 開発
 
 ```bash
-python -m http.server 8080
+python devserver.py
 ```
 
 `http://localhost:8080/control.html?court=A` を開く。
 `file://` で直接開くと ES モジュールとログインが動かないので、必ずローカルサーバー経由で開く。
+
+`devserver.py` は確認用の簡易サーバー。CSS や JS を書き換えてもブラウザが古いものを
+使い続けないよう、キャッシュ無効のヘッダーを付け、参照に更新時刻を自動で足す。
 
 ルールの反映:
 

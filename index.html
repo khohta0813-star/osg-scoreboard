@@ -3,35 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>OSG LIVEスコアボード</title>
 <!-- 入口のページ。コートを選んで操作画面を開く／配信用URLをコピーする。 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Noto+Sans+JP:wght@500;700;900&display=swap">
-<link rel="stylesheet" href="css/parts.css">
-<link rel="stylesheet" href="css/control.css">
+<link rel="stylesheet" href="css/ui.css">
 <style>
-.courts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}
-.url{font-family:var(--f-num);font-size:14px;background:var(--navy);border:1px solid var(--line);
-  border-radius:8px;padding:8px 10px;word-break:break-all;line-height:1.5}
-.card h3{margin:0;font-size:22px;font-family:var(--f-num);letter-spacing:.04em}
+.hero{padding:var(--u-6) 0 var(--u-2)}
+.hero h1{margin:0 0 var(--u-2);font-size:clamp(26px,5vw,40px);font-weight:900;letter-spacing:-.01em;line-height:1.2}
+.hero p{margin:0;color:var(--u-mute);font-size:15px;max-width:60ch}
+.courts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--u-4)}
+.court-card{gap:var(--u-4)}
+.court-card h3{
+  margin:0;font-family:var(--u-f-num);font-size:30px;font-weight:800;letter-spacing:.03em;line-height:1.1;
+  display:flex;align-items:center;gap:var(--u-3);
+}
+.court-card h3::before{content:"";width:10px;height:28px;border-radius:3px;background:var(--u-accent);flex:0 0 auto}
+.url{
+  display:block;width:100%;font-family:var(--u-f-num);font-size:14px;letter-spacing:.01em;
+  background:var(--u-bg);border:1px solid var(--u-line-soft);border-radius:var(--u-r);
+  padding:10px 12px;word-break:break-all;line-height:1.5;color:var(--u-ink-2);
+}
+.sub{font-size:12px;font-weight:700;color:var(--u-mute);margin:0}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1><span class="live">● LIVE</span>OSG スコアボード</h1>
+<div class="shell">
+
+  <header class="top">
+    <div class="brand">
+      <span class="tally">LIVE</span>
+      <h1>OSG スコアボード</h1>
+    </div>
+    <div class="row" style="flex:0 0 auto">
+      <a class="btn-wrap" href="stats.html"><button type="button" class="ghost">スコア分析</button></a>
+    </div>
   </header>
+
+  <section class="hero">
+    <h1>テニス日本リーグ<br>配信用スコアボード</h1>
+    <p>コートを選んで操作画面を開きます。配信用のURLは、Prism Live Studio のウェブウィジェットに貼り付けてください。</p>
+  </section>
 
   <div class="courts" id="courts"></div>
 
   <section class="card">
     <h2>Other court<span>ほかのコートを開く</span></h2>
     <div class="row">
-      <label>コートID（A、B、C など）<input type="text" id="cid" value="C" maxlength="20"></label>
-      <button id="go">操作画面を開く</button>
+      <label style="flex:1 1 200px">コートID（A、B、C など）<input type="text" id="cid" value="C" maxlength="20" autocapitalize="characters"></label>
+      <button id="go" style="flex:0 0 auto">操作画面を開く</button>
     </div>
-    <p class="note">URL の末尾の <b>?court=</b> の後ろがコート名です。コートごとにスコアは別々に保存されます。</p>
+    <p class="note">URL の末尾の <b>?court=</b> の後ろがコート名です。コートごとにスコアは別々に保存されます。新しいコートは、操作画面を最初に開いたときに自動で作られます。</p>
   </section>
+
 </div>
 
 <script type="module">
@@ -42,16 +68,18 @@ const base = location.href.replace(/\/[^/]*$/, '/');
 
 for (const c of ['A', 'B']) {
   const sec = document.createElement('section');
-  sec.className = 'card';
+  sec.className = 'card court-card';
   sec.dataset.court = c;
   sec.innerHTML = `
     <h3>COURT ${c}</h3>
-    <a class="btn" href="control.html?court=${c}"><button type="button" class="go">操作画面を開く</button></a>
-    <p class="note">Prism に貼る配信用URL（このURLをコピーしてウェブウィジェットに設定）</p>
-    <div class="url">${base}overlay.html?court=${c}</div>
+    <a class="btn-wrap" href="control.html?court=${c}"><button type="button" class="primary" style="width:100%">操作画面を開く</button></a>
+    <div>
+      <p class="sub">Prism に貼る配信用URL</p>
+      <code class="url">${base}overlay.html?court=${c}</code>
+    </div>
     <div class="row">
-      <button type="button" data-copy="${base}overlay.html?court=${c}">配信用URLをコピー</button>
-      <a class="btn" href="overlay.html?court=${c}" target="_blank" rel="noopener"><button type="button">配信用ページを確認</button></a>
+      <button type="button" data-copy="${base}overlay.html?court=${c}">URLをコピー</button>
+      <a class="btn-wrap" href="overlay.html?court=${c}" target="_blank" rel="noopener"><button type="button" class="ghost">表示を確認</button></a>
     </div>`;
   box.appendChild(sec);
 }
@@ -74,9 +102,10 @@ box.addEventListener('click', async e => {
   try {
     await navigator.clipboard.writeText(b.dataset.copy);
     b.textContent = 'コピーしました';
-    setTimeout(() => (b.textContent = '配信用URLをコピー'), 2000);
+    b.classList.add('on');
+    setTimeout(() => { b.textContent = 'URLをコピー'; b.classList.remove('on'); }, 2000);
   } catch (err) {
-    b.textContent = 'コピーできませんでした（手で選んでください）';
+    b.textContent = 'コピーできません（手で選んでください）';
   }
 });
 

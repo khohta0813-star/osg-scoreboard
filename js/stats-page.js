@@ -80,7 +80,7 @@ $('mlist').addEventListener('click', e => {
 /* ---------- 1試合の分析 ---------- */
 async function openMatch(id) {
   current = matches.find(m => m.id === id);
-  document.querySelectorAll('.mitem').forEach(el => el.classList.toggle('on', el.dataset.id === id));
+  document.querySelectorAll('.mitem').forEach(el => el.setAttribute('aria-current', String(el.dataset.id === id)));
   $('detail').innerHTML = '<section class="card"><p class="empty">読み込み中…</p></section>';
   let points;
   try {
@@ -123,7 +123,7 @@ function render(points, meta) {
         <div><span>ゲーム数</span><b class="big-num">${r.games.length}</b></div>
       </div>
       <div class="row">
-        <button type="button" id="csv">CSVでダウンロード</button>
+        <button type="button" id="csv" class="ghost">CSVでダウンロード</button>
       </div>
       <p class="note">記録は得点ボタンから自動で作られています。ウィナーやラリー数は含みません。</p>
     </section>

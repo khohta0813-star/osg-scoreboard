@@ -133,9 +133,20 @@ function render() {
   $('dblBox').hidden = !st.dbl.on;
   if (st.dbl.on) {
     const srv = sc.srv, ret = oth(srv);
-    $('dblNow').textContent = sc.win
-      ? '試合終了'
-      : `サーブ ${dblName(st.dbl, srv, serverPlayer(sc, st.dbl))}　｜　リターン ${dblName(st.dbl, ret, returnerPlayer(sc, st.dbl))}`;
+    $('dblNow').textContent = '';
+    if (sc.win) {
+      $('dblNow').textContent = '試合終了';
+    } else {
+      const put = (label, who) => {
+        const box = document.createElement('span');
+        const i = document.createElement('i');
+        i.textContent = label;
+        box.append(i, who);
+        $('dblNow').appendChild(box);
+      };
+      put('SERVE', dblName(st.dbl, srv, serverPlayer(sc, st.dbl)));
+      put('RETURN', dblName(st.dbl, ret, returnerPlayer(sc, st.dbl)));
+    }
   }
   const dt = dirty();
   $('pubBar').classList.toggle('dirty', dt);
@@ -572,3 +583,37 @@ render();
 
 /* 文字の幅は書体が読み込まれると変わるので、読み込み後にもう一度描き直す */
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+
+
+/* ---------- タブの切り替え ---------- */
+const TAB_KEY = 'osg-control-tab';
+const tabBtns = [...document.querySelectorAll('.tabs [role=tab]')];
+
+function showTab(name) {
+  for (const b of tabBtns) {
+    const on = b.dataset.tab === name;
+    b.setAttribute('aria-selected', String(on));
+    $('tab-' + b.dataset.tab).hidden = !on;
+  }
+  try { localStorage.setItem(TAB_KEY, name); } catch (e) { /* 使えなくても困らない */ }
+}
+
+tabBtns.forEach((b, i) => {
+  b.onclick = () => showTab(b.dataset.tab);
+  // 左右キーでも切り替えられるようにする
+  b.onkeydown = e => {
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const next = tabBtns[(i + d + tabBtns.length) % tabBtns.length];
+    showTab(next.dataset.tab);
+    next.focus();
+  };
+});
+
+let startTab = 'live';
+try {
+  const v = localStorage.getItem(TAB_KEY);
+  if (v && tabBtns.some(b => b.dataset.tab === v)) startTab = v;
+} catch (e) { /* 既定のまま */ }
+showTab(startTab);
