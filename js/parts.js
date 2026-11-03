@@ -60,7 +60,12 @@ export function defaultDisplay(court = 'A') {
 
 /* 0-0 の新しい試合 */
 export function emptyScore() {
-  return { done: [], g: { a: 0, b: 0 }, p: { a: 0, b: 0 }, tb: false, mtb: false, srv: 'a', tbFirst: 'a', win: null };
+  return {
+    done: [], g: { a: 0, b: 0 }, p: { a: 0, b: 0 },
+    tb: false, mtb: false, srv: 'a', tbFirst: 'a', win: null,
+    fault: false, // ファーストサーブがフォルト＝いまセカンドサーブ
+    n: 0, //         この試合で何ポイント行われたか（取り消しの巻き戻しに使う）
+  };
 }
 
 export function defaultState(court = 'A') {
@@ -71,6 +76,7 @@ export function defaultState(court = 'A') {
     sc: emptyScore(),
     hist: [],
     name: '', // コート表示名。空欄なら「COURT 〇」と出る
+    matchId: '', // 分析用の記録をためている試合のID（「試合をリセット」で新しくなる）
   };
 }
 
@@ -112,6 +118,7 @@ export function normalize(raw, court = 'A') {
     sc: fill(raw && raw.sc, def.sc),
     hist: toArray(raw && raw.hist),
     name: raw && typeof raw.name === 'string' ? raw.name : '',
+    matchId: raw && typeof raw.matchId === 'string' ? raw.matchId : '',
   };
   st.sc.done = toArray(raw && raw.sc && raw.sc.done).map(r => ({
     a: Number(r.a) || 0,
@@ -120,6 +127,8 @@ export function normalize(raw, court = 'A') {
     mtb: !!r.mtb,
   }));
   st.sc.win = raw && raw.sc && raw.sc.win ? raw.sc.win : null;
+  st.sc.fault = !!st.sc.fault;
+  st.sc.n = Math.max(0, Number(st.sc.n) || 0);
   st.rules.sets = [1, 3, 5].includes(Number(st.rules.sets)) ? Number(st.rules.sets) : 3;
   st.rules.games = Number(st.rules.games) === 8 ? 8 : 6;
   fixLay(st.draft);
@@ -158,6 +167,7 @@ export function addPoint(st, side) {
   const sc = st.sc;
   if (sc.win) return false;
   st.hist.push(JSON.stringify(sc));
+  sc.n = (sc.n || 0) + 1;
   if (st.hist.length > HIST_MAX) st.hist.shift();
   const o = oth(side);
   sc.p[side]++;

@@ -8,11 +8,14 @@
        「配信に反映」で draft を pub にコピーして初めて視聴者に出る */
 
 import {
-  PARTS, ANCHOR, clone, oth, defaultState, normalize,
+  PARTS, ANCHOR, clone, oth, defaultState, emptyScore, normalize,
   addPoint, ptText, setStr, resultLine,
   mountCanvas, renderCanvas, place, fit,
 } from './parts.js';
-import { app, isConfigured, courtId, watchCourt, watchConnection, writeSub, writeMany, seedIfEmpty } from './db.js';
+import {
+  app, isConfigured, courtId, watchCourt, watchConnection, writeSub, writeMany, seedIfEmpty,
+  newMatchId, writeMatchMeta, updateMatchMeta, appendPoint, removeLastPoints,
+} from './db.js';
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
   setPersistence, browserLocalPersistence,
@@ -98,7 +101,7 @@ const wScHist = () =>
 
 /* 画面に反映してから保存する */
 const commitDraft = () => { render(); wDraft(); };
-const commitRules = () => { render(); wRules(); };
+const commitRules = () => { render(); wRules(); refreshMatchInfo(); };
 const commitScore = () => { render(); wScHist(); };
 
 /* ---------- キャンバス（下書き／配信中） ---------- */
@@ -117,10 +120,13 @@ function render() {
   const sets = sc.done.map(setStr).join('  ');
   $('readout').textContent = sc.win
     ? `${t[sc.win]} の勝利　${sets}`
-    : `${sets ? sets + '  ｜  ' : ''}${sc.g.a}-${sc.g.b}  ｜  ${ptText(st, 'a')}-${ptText(st, 'b')}${sc.tb ? (sc.mtb ? '  (10pt TB)' : '  (TB)') : ''}`;
+    : `${sets ? sets + '  ｜  ' : ''}${sc.g.a}-${sc.g.b}  ｜  ${ptText(st, 'a')}-${ptText(st, 'b')}${sc.tb ? (sc.mtb ? '  (10pt TB)' : '  (TB)') : ''}${sc.fault ? '  ｜  2ndサーブ' : ''}`;
   $('courtTag').textContent = courtLabel();
   document.title = `OSG LIVEスコアボード（${courtLabel()}）`;
   $('undo').disabled = !st.hist.length;
+  $('fault').classList.toggle('on', !!sc.fault);
+  $('fault').textContent = sc.fault ? 'もう一度押すとダブルフォールト' : 'フォルト（続けて2回でダブルフォールト）';
+  $('fault').disabled = !!sc.win;
   const dt = dirty();
   $('pubBar').classList.toggle('dirty', dt);
   $('pubMsg').textContent = dt
@@ -379,14 +385,98 @@ $('publish').onclick = () => {
   st.pub = clone(st.draft);
   render();
   wPub();
+  refreshMatchInfo();
   $('pubMsg').textContent = '配信に反映しました';
 };
 $('discard').onclick = () => { st.draft = clone(st.pub); fillForm(); commitDraft(); };
-$('ptA').onclick = () => { if (addPoint(st, 'a')) commitScore(); };
-$('ptB').onclick = () => { if (addPoint(st, 'b')) commitScore(); };
+/* ---------- スコア分析用の記録 ----------
+   得点ボタンを押すたび、そのときの状況を1件ずつ残す。操作する側の手間は増えない。
+   「試合をリセット」を押すと、そこから新しい試合として記録し直す。 */
+
+function matchInfo() {
+  const d = st.pub;
+  return {
+    court,
+    courtName: st.name || '',
+    teams: { a: d.teams.a, b: d.teams.b },
+    players: { a: d.m.pA, b: d.m.pB },
+    code: d.m.code,
+    lbl: d.m.lbl,
+    rules: { sets: st.rules.sets, games: st.rules.games, noAd: !!st.rules.noAd, tb: !!st.rules.tb, mtb: !!st.rules.mtb },
+  };
+}
+
+function ensureMatch() {
+  if (st.matchId) return st.matchId;
+  const id = newMatchId(court);
+  st.matchId = id;
+  send(writeSub(court, 'matchId', id));
+  send(writeMatchMeta(id, { ...matchInfo(), startedAt: Date.now() }));
+  return id;
+}
+
+/* 選手名やルールを変えたら、記録側の見出しも合わせておく */
+function refreshMatchInfo() {
+  if (st.matchId && loaded) send(updateMatchMeta(st.matchId, matchInfo()));
+}
+
+function logPoint(before, side, df) {
+  const id = ensureMatch();
+  const rec = {
+    t: Date.now(), // 時刻。配信動画の該当箇所を探すのにも使える
+    w: side, //      ポイントを取った側
+    s: before.srv, // サーバー
+    sv: before.fault ? 2 : 1, // 1st か 2nd か
+    set: before.done.length,
+    ga: before.g.a, gb: before.g.b, // ポイント開始時のゲームカウント
+    pa: before.p.a, pb: before.p.b, // ポイント開始時のポイント
+  };
+  if (before.tb) rec.tb = true;
+  if (before.mtb) rec.mtb = true;
+  if (df) rec.df = true;
+  send(appendPoint(id, rec));
+}
+
+function scorePoint(side, df) {
+  if (tooEarly()) return;
+  const before = clone(st.sc);
+  if (!addPoint(st, side)) return;
+  st.sc.fault = false;
+  logPoint(before, side, df);
+  const justWon = st.sc.win && !before.win;
+  commitScore();
+  if (justWon) {
+    send(updateMatchMeta(st.matchId, {
+      endedAt: Date.now(),
+      winner: st.sc.win,
+      score: st.sc.done.map(setStr).join(' '),
+    }));
+  }
+}
+
+$('ptA').onclick = () => scorePoint('a');
+$('ptB').onclick = () => scorePoint('b');
+
+/* フォルト：1回押すとセカンドサーブ、続けて2回でダブルフォールト（相手に得点） */
+$('fault').onclick = () => {
+  if (tooEarly() || st.sc.win) return;
+  if (!st.sc.fault) {
+    st.sc.fault = true;
+    render();
+    wSc();
+    return;
+  }
+  scorePoint(oth(st.sc.srv), true);
+};
+
 $('undo').onclick = () => {
   const h = st.hist.pop();
-  if (h) { st.sc = JSON.parse(h); commitScore(); }
+  if (!h) return;
+  const beforeN = st.sc.n || 0;
+  st.sc = JSON.parse(h);
+  const removed = beforeN - (st.sc.n || 0);
+  if (removed > 0) send(removeLastPoints(st.matchId, removed));
+  commitScore();
 };
 $('srv').onclick = () => { st.sc.srv = oth(st.sc.srv); render(); wSc(); };
 
@@ -399,7 +489,11 @@ $('reset').onclick = () => {
   }
   clearTimeout(armed); armed = null; $('reset').textContent = '試合をリセット';
   st.hist.push(JSON.stringify(st.sc));
-  st.sc = { done: [], g: { a: 0, b: 0 }, p: { a: 0, b: 0 }, tb: false, mtb: false, srv: 'a', tbFirst: 'a', win: null };
+  // ここまでを1試合として区切り、次のポイントから新しい試合として記録する
+  if (st.matchId && (st.sc.n || 0) > 0) send(updateMatchMeta(st.matchId, { endedAt: Date.now() }));
+  st.matchId = '';
+  send(writeSub(court, 'matchId', ''));
+  st.sc = emptyScore();
   commitScore();
 };
 $('addResult').onclick = () => {

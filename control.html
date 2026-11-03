@@ -35,6 +35,7 @@
       <button id="bgBtn">背景画像を読み込む</button>
       <input type="file" id="bgFile" accept="image/*" hidden>
       <a class="btn" id="overlayLink" href="overlay.html?court=A" target="_blank" rel="noopener"><button type="button">配信用ページを開く</button></a>
+      <a class="btn" href="stats.html" target="_blank" rel="noopener"><button type="button">スコア分析</button></a>
       <button id="logout">ログアウト</button>
     </div>
   </header>
@@ -66,12 +67,14 @@
         <button id="ptA"><span id="ptAn"></span><small id="ptAp"></small></button>
         <button id="ptB"><span id="ptBn"></span><small id="ptBp"></small></button>
       </div>
+      <button id="fault">フォルト（続けて2回でダブルフォールト）</button>
       <div class="row">
         <button id="undo">↶ 取り消し</button>
         <button id="srv">サーブ交代</button>
         <button id="reset" class="warn">試合をリセット</button>
       </div>
       <button id="addResult">この試合の結果を「団体戦の結果」の下書きに追加</button>
+      <p class="note">得点ボタンを押すたびに、分析用の記録（時刻・スコア状況・サーバー・1st/2nd）が自動で残ります。「試合をリセット」を押すと、そこから次の試合の記録になります。</p>
     </section>
 
     <section class="card">

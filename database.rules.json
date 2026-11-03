@@ -14,6 +14,19 @@
         "rules": { ".validate": "newData.hasChildren(['sets'])" },
         "hist":  { ".validate": "newData.hasChildren()" }
       }
+    },
+
+    "matchList": {
+      ".read": "auth != null",
+      ".indexOn": ["startedAt"],
+      "$matchId": { ".write": "auth != null" }
+    },
+
+    "matchPoints": {
+      "$matchId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
     }
   }
 }
