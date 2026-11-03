@@ -8,7 +8,7 @@
        「配信に反映」で draft を pub にコピーして初めて視聴者に出る */
 
 import {
-  PARTS, ANCHOR, clone, oth, defaultState, emptyScore, normalize,
+  PARTS, ANCHOR, clone, oth, defaultState, emptyScore, normalize, serverPlayer, returnerPlayer, dblName,
   addPoint, ptText, setStr, resultLine,
   mountCanvas, renderCanvas, place, fit,
 } from './parts.js';
@@ -76,6 +76,8 @@ let seeding = false;
 let draftTimer = null;
 let draftPending = false;
 let nameTimer = null;
+let dblTimer = null;
+const dblFields = [['dA1', 'a1'], ['dA2', 'a2'], ['dB1', 'b1'], ['dB2', 'b2']];
 /* 読み込みが終わるまでは書き込まない */
 function tooEarly() {
   if (loaded) return false;
@@ -94,6 +96,7 @@ function wDraft() {
 }
 const wPub = () => (tooEarly() ? null : send(writeSub(court, 'pub', st.pub)));
 const wName = () => (tooEarly() ? null : send(writeSub(court, 'name', st.name)));
+const wDbl = () => (tooEarly() ? null : send(writeSub(court, 'dbl', st.dbl)));
 const wRules = () => (tooEarly() ? null : send(writeSub(court, 'rules', st.rules)));
 const wSc = () => (tooEarly() ? null : send(writeSub(court, 'sc', st.sc)));
 const wScHist = () =>
@@ -127,6 +130,13 @@ function render() {
   $('fault').classList.toggle('on', !!sc.fault);
   $('fault').textContent = sc.fault ? 'もう一度押すとダブルフォールト' : 'フォルト（続けて2回でダブルフォールト）';
   $('fault').disabled = !!sc.win;
+  $('dblBox').hidden = !st.dbl.on;
+  if (st.dbl.on) {
+    const srv = sc.srv, ret = oth(srv);
+    $('dblNow').textContent = sc.win
+      ? '試合終了'
+      : `サーブ ${dblName(st.dbl, srv, serverPlayer(sc, st.dbl))}　｜　リターン ${dblName(st.dbl, ret, returnerPlayer(sc, st.dbl))}`;
+  }
   const dt = dirty();
   $('pubBar').classList.toggle('dirty', dt);
   $('pubMsg').textContent = dt
@@ -170,6 +180,7 @@ if (isConfigured) {
     // ただし最初の1回はサーバーの内容をそのまま受け取る（手元はまだ初期値のため）
     if (loaded && draftPending) next.draft = st.draft;
     if (loaded && nameTimer) next.name = st.name;
+    if (loaded && dblTimer) next.dbl = st.dbl;
     st = next;
     setLoaded(true);
     fillForm();
@@ -342,6 +353,37 @@ const binds = [
 ];
 binds.forEach(([id, set]) => $(id).addEventListener('input', e => { set(e.target.value); commitDraft(); }));
 
+/* ダブルスの設定も配信には出ないので、下書きを通さず即時に保存する */
+dblFields.forEach(([id, key]) => {
+  $(id).addEventListener('input', e => {
+    if (tooEarly()) { e.target.value = st.dbl.names[key]; return; }
+    st.dbl.names[key] = e.target.value;
+    render();
+    clearTimeout(dblTimer);
+    dblTimer = setTimeout(() => { dblTimer = null; wDbl(); }, 300);
+  });
+});
+$('dblOn').addEventListener('change', e => {
+  if (tooEarly()) { e.target.checked = st.dbl.on; return; }
+  st.dbl.on = e.target.checked;
+  render();
+  wDbl();
+});
+$('swapSrv').onclick = () => {
+  if (tooEarly() || !st.dbl.on) return;
+  const t = st.sc.srv;
+  st.dbl.srvFirst[t] = st.dbl.srvFirst[t] ? 0 : 1;
+  render();
+  wDbl();
+};
+$('swapRet').onclick = () => {
+  if (tooEarly() || !st.dbl.on) return;
+  const t = oth(st.sc.srv);
+  st.dbl.deuce[t] = st.dbl.deuce[t] ? 0 : 1;
+  render();
+  wDbl();
+};
+
 /* コート表示名は配信には出ない表示用のラベルなので、下書きを通さず即時に保存する */
 $('courtName').addEventListener('input', e => {
   if (tooEarly()) { e.target.value = st.name; return; }
@@ -374,6 +416,8 @@ $('fmt').onchange = e => {
 function fillForm() {
   binds.forEach(([id, , get]) => { if (document.activeElement !== $(id)) $(id).value = get(); });
   if (document.activeElement !== $('courtName')) $('courtName').value = st.name;
+  $('dblOn').checked = st.dbl.on;
+  dblFields.forEach(([id, key]) => { if (document.activeElement !== $(id)) $(id).value = st.dbl.names[key]; });
   draftChecks.concat(ruleChecks).forEach(([id, , get]) => ($(id).checked = get()));
   const fmt = `${st.rules.sets}-${st.rules.games}`;
   if ([...$('fmt').options].some(o => o.value === fmt)) $('fmt').value = fmt;
@@ -403,6 +447,7 @@ function matchInfo() {
     code: d.m.code,
     lbl: d.m.lbl,
     rules: { sets: st.rules.sets, games: st.rules.games, noAd: !!st.rules.noAd, tb: !!st.rules.tb, mtb: !!st.rules.mtb },
+    dbl: st.dbl.on ? { on: true, names: { ...st.dbl.names } } : { on: false },
   };
 }
 
@@ -434,6 +479,10 @@ function logPoint(before, side, df) {
   if (before.tb) rec.tb = true;
   if (before.mtb) rec.mtb = true;
   if (df) rec.df = true;
+  if (st.dbl.on) {
+    rec.sp = serverPlayer(before, st.dbl); // サーブした人（0 or 1）
+    rec.rp = returnerPlayer(before, st.dbl); // リターンした人
+  }
   send(appendPoint(id, rec));
 }
 

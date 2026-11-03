@@ -1,7 +1,7 @@
 /* 分析ページの画面まわり。計算そのものは js/stats.js にある。 */
 
 import { app, isConfigured, listMatches, readPoints } from './db.js';
-import { analyse, momentum, toCsv } from './stats.js';
+import { analyse, momentum, toCsv, dblLabel } from './stats.js';
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
   setPersistence, browserLocalPersistence,
@@ -151,6 +151,8 @@ function render(points, meta) {
       row('キープ率', p(A.hold.pct), p(B.hold.pct)),
     ].join(''))}
 
+    ${playerTables(r, meta)}
+
     ${table('Court side', 'デュースサイド / アドサイド', [
       row('デュースサイドのサーブ獲得率', p(A.side.deuce.servePct), p(B.side.deuce.servePct)),
       row('アドサイドのサーブ獲得率', p(A.side.ad.servePct), p(B.side.ad.servePct)),
@@ -179,6 +181,37 @@ function render(points, meta) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
+}
+
+/* ダブルスのとき、選手ごとの表を出す */
+function playerTables(r, meta) {
+  if (!r.players) return '';
+  const cell = v => `<b>${v}</b>`;
+  const teamTable = t => {
+    const label = esc((meta.teams && meta.teams[t]) || t.toUpperCase());
+    const n0 = esc(dblLabel(meta, t, 0)), n1 = esc(dblLabel(meta, t, 1));
+    const v0 = r.players[t][0], v1 = r.players[t][1];
+    const row = (k, f) => `<tr><td>${k}</td><td>${cell(f(v0))}</td><td>${cell(f(v1))}</td></tr>`;
+    return `<section class="card">
+      <h2>Players<span>${label} の選手別</span></h2>
+      <table>
+        <thead><tr><th></th><th>${n0}</th><th>${n1}</th></tr></thead>
+        <tbody>
+          ${row('サーブを打った数', v => n(v.serve.total))}
+          ${row('ファーストサーブ確率', v => p(v.serve.firstPct))}
+          ${row('ファーストサーブ獲得率', v => p(v.serve.firstWonPct))}
+          ${row('セカンドサーブ獲得率', v => p(v.serve.secondWonPct))}
+          ${row('サービスポイント獲得率', v => p(v.serve.wonPct))}
+          ${row('ダブルフォールト', v => n(v.serve.df))}
+          ${row('リターンした数', v => n(v.ret.faced))}
+          ${row('リターンポイント獲得率', v => p(v.ret.wonPct))}
+          ${row('デュースサイドのリターン獲得率', v => p(v.ret.deucePct))}
+          ${row('アドサイドのリターン獲得率', v => p(v.ret.adPct))}
+        </tbody>
+      </table>
+    </section>`;
+  };
+  return teamTable('a') + teamTable('b');
 }
 
 /* 得点差の推移を折れ線にする */

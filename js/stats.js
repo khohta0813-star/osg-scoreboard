@@ -69,6 +69,14 @@ export function analyse(points, meta) {
   });
   const S = { a: blank(), b: blank() };
 
+  /* ダブルスで、記録にサーブ／リターンした人が入っているとき用 */
+  const blankP = () => ({
+    serve: { total: 0, first: 0, firstWon: 0, secondWon: 0, df: 0, won: 0 },
+    ret: { faced: 0, won: 0, deuce: 0, deuceWon: 0, ad: 0, adWon: 0 },
+  });
+  const P = { a: [blankP(), blankP()], b: [blankP(), blankP()] };
+  let hasPlayers = false;
+
   let run = { side: null, n: 0 };
   for (const p of points) {
     const srv = p.s, rec = OTHER(srv);
@@ -99,6 +107,27 @@ export function analyse(points, meta) {
     S[rec].side[cs].ret++;
     if (p.w === srv) S[srv].side[cs].servedWon++;
     else S[rec].side[cs].retWon++;
+
+    // ダブルス：誰がサーブし、誰がリターンしたか
+    if (p.sp === 0 || p.sp === 1) {
+      hasPlayers = true;
+      const sv = P[srv][p.sp];
+      sv.serve.total++;
+      if (p.sv === 1) {
+        sv.serve.first++;
+        if (p.w === srv) sv.serve.firstWon++;
+      } else if (p.w === srv) sv.serve.secondWon++;
+      if (p.df) sv.serve.df++;
+      if (p.w === srv) sv.serve.won++;
+    }
+    if (p.rp === 0 || p.rp === 1) {
+      const rt = P[rec][p.rp];
+      rt.ret.faced++;
+      if (p.w === rec) rt.ret.won++;
+      const side = courtSide(p);
+      rt.ret[side]++;
+      if (p.w === rec) rt.ret[side + 'Won']++;
+    }
 
     // 勝負所（タイブレーク中は数えない）
     if (!p.tb) {
@@ -161,10 +190,23 @@ export function analyse(points, meta) {
     }
   }
 
+  for (const t of ['a', 'b']) {
+    for (const v of P[t]) {
+      v.serve.firstPct = pct(v.serve.first, v.serve.total);
+      v.serve.firstWonPct = pct(v.serve.firstWon, v.serve.first);
+      v.serve.secondWonPct = pct(v.serve.secondWon, v.serve.total - v.serve.first);
+      v.serve.wonPct = pct(v.serve.won, v.serve.total);
+      v.ret.wonPct = pct(v.ret.won, v.ret.faced);
+      v.ret.deucePct = pct(v.ret.deuceWon, v.ret.deuce);
+      v.ret.adPct = pct(v.ret.adWon, v.ret.ad);
+    }
+  }
+
   const first = points[0], last = points[points.length - 1];
   return {
     rules,
     stats: S,
+    players: hasPlayers ? P : null,
     games,
     total: points.length,
     startedAt: first ? first.t : meta && meta.startedAt,
@@ -179,9 +221,16 @@ export function momentum(points) {
   return points.map(p => (d += p.w === 'a' ? 1 : -1));
 }
 
+/* ダブルスの選手名。未入力なら A1 のような仮の名前 */
+export function dblLabel(meta, team, idx) {
+  const names = meta && meta.dbl && meta.dbl.names;
+  const key = team + (idx + 1);
+  return (names && (names[key] || '').trim()) || team.toUpperCase() + (idx + 1);
+}
+
 /* 表計算ソフトで開けるように CSV にする */
 export function toCsv(points, meta) {
-  const head = ['順番', '時刻', 'セット', 'ゲーム', 'ポイント', 'サーバー', 'コートサイド', '1st/2nd', 'ダブルフォールト', 'タイブレーク', '取った側'];
+  const head = ['順番', '時刻', 'セット', 'ゲーム', 'ポイント', 'サーバー', 'コートサイド', '1st/2nd', 'ダブルフォールト', 'タイブレーク', 'サーブした人', 'リターンした人', '取った側'];
   const rows = points.map((p, i) => [
     i + 1,
     new Date(p.t).toLocaleString('ja-JP'),
@@ -193,6 +242,8 @@ export function toCsv(points, meta) {
     p.sv === 2 ? '2nd' : '1st',
     p.df ? 'はい' : '',
     p.tb ? 'はい' : '',
+    p.sp === 0 || p.sp === 1 ? dblLabel(meta, p.s, p.sp) : '',
+    p.rp === 0 || p.rp === 1 ? dblLabel(meta, p.s === 'a' ? 'b' : 'a', p.rp) : '',
     p.w === 'a' ? (meta.teams ? meta.teams.a : 'A') : meta.teams ? meta.teams.b : 'B',
   ]);
   return [head, ...rows]

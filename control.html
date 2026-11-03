@@ -114,6 +114,25 @@
     </section>
 
     <section class="card">
+      <h2>Doubles<span>ダブルスの選手（分析用）</span><span class="chip now">押すと即時に保存</span></h2>
+      <label class="chk"><input type="checkbox" id="dblOn">ダブルスとして記録する</label>
+      <div id="dblBox" hidden>
+        <div class="two">
+          <label>A1（チームAの1人目）<input type="text" id="dA1"></label>
+          <label>A2（チームAの2人目）<input type="text" id="dA2"></label>
+          <label>B1（チームBの1人目）<input type="text" id="dB1"></label>
+          <label>B2（チームBの2人目）<input type="text" id="dB2"></label>
+        </div>
+        <div class="readout" id="dblNow"></div>
+        <div class="row">
+          <button type="button" id="swapSrv">サーブの人を入れ替え</button>
+          <button type="button" id="swapRet">リターンの人を入れ替え</button>
+        </div>
+        <p class="note">サーブはペア内で1ゲームおき、リターンはコートサイドで固定、という規則から自動で判定します。実際と違っていたら、そのときに入れ替えボタンを押してください。押した時点から先の記録に反映されます（配信の表示は変わりません）。</p>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Team results<span>団体戦の結果（1行に1試合）</span><span class="chip drf">下書き</span></h2>
       <textarea id="results"></textarea>
       <label class="chk"><input type="checkbox" id="resBand">背景の帯を付ける</label>

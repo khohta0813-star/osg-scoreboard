@@ -77,6 +77,15 @@ export function defaultState(court = 'A') {
     hist: [],
     name: '', // コート表示名。空欄なら「COURT 〇」と出る
     matchId: '', // 分析用の記録をためている試合のID（「試合をリセット」で新しくなる）
+    /* ダブルスの分析用。配信の表示には使わない。
+       srvFirst … いまのセットで先にサーブする人（0 or 1）
+       deuce   … デュースサイドでリターンする人（0 or 1） */
+    dbl: {
+      on: false,
+      names: { a1: '', a2: '', b1: '', b2: '' },
+      srvFirst: { a: 0, b: 0 },
+      deuce: { a: 0, b: 0 },
+    },
   };
 }
 
@@ -119,6 +128,7 @@ export function normalize(raw, court = 'A') {
     hist: toArray(raw && raw.hist),
     name: raw && typeof raw.name === 'string' ? raw.name : '',
     matchId: raw && typeof raw.matchId === 'string' ? raw.matchId : '',
+    dbl: fill(raw && raw.dbl, def.dbl),
   };
   st.sc.done = toArray(raw && raw.sc && raw.sc.done).map(r => ({
     a: Number(r.a) || 0,
@@ -127,6 +137,12 @@ export function normalize(raw, court = 'A') {
     mtb: !!r.mtb,
   }));
   st.sc.win = raw && raw.sc && raw.sc.win ? raw.sc.win : null;
+  st.dbl.on = !!st.dbl.on;
+  for (const t of ['a', 'b']) {
+    st.dbl.srvFirst[t] = Number(st.dbl.srvFirst[t]) === 1 ? 1 : 0;
+    st.dbl.deuce[t] = Number(st.dbl.deuce[t]) === 1 ? 1 : 0;
+  }
+  for (const k of ['a1', 'a2', 'b1', 'b2']) st.dbl.names[k] = String(st.dbl.names[k] || '');
   st.sc.fault = !!st.sc.fault;
   st.sc.n = Math.max(0, Number(st.sc.n) || 0);
   st.rules.sets = [1, 3, 5].includes(Number(st.rules.sets)) ? Number(st.rules.sets) : 3;
@@ -439,4 +455,42 @@ export function renderCanvas(stage, d, sc, rules) {
     w.hidden = !on;
     place(w, L);
   });
+}
+
+
+/* ---------- ダブルスの「いま誰が打っているか」 ----------
+   どちらも規則で決まるので、セットごとに一度だけ順番を決めれば自動で分かる。
+     サーブ   … チーム内で1ゲームおきに交代
+     リターン … セットを通してコートサイドで固定 */
+
+/* いまサーブしている人（そのチームの 0 か 1） */
+export function serverPlayer(sc, dbl) {
+  const s = sc.srv;
+  if (!sc.tb) {
+    // このセットでそのチームが何回サーブ番を終えたか
+    return (dbl.srvFirst[s] + Math.floor((sc.g.a + sc.g.b) / 2)) % 2;
+  }
+  // タイブレーク：最初の1本だけ1ポイント、以降は2ポイントごとに交代していく
+  const G = sc.g.a + sc.g.b; // タイブレーク開始時のゲーム数
+  const firstGameServer = G % 2 === 0 ? sc.tbFirst : oth(sc.tbFirst);
+  const gamesServed = {};
+  gamesServed[firstGameServer] = Math.ceil(G / 2);
+  gamesServed[oth(firstGameServer)] = Math.floor(G / 2);
+  const turn = Math.floor((sc.p.a + sc.p.b + 1) / 2); // 何回目のサーブ番か
+  let mine = 0;
+  for (let i = 0; i < turn; i++) if ((i % 2 === 0 ? sc.tbFirst : oth(sc.tbFirst)) === s) mine++;
+  return (dbl.srvFirst[s] + gamesServed[s] + mine) % 2;
+}
+
+/* いまリターンする人（そのチームの 0 か 1） */
+export function returnerPlayer(sc, dbl) {
+  const r = oth(sc.srv);
+  const onDeuceSide = (sc.p.a + sc.p.b) % 2 === 0;
+  return onDeuceSide ? dbl.deuce[r] : 1 - dbl.deuce[r];
+}
+
+/* 表示用の名前。未入力なら「A1」のような仮の名前を返す */
+export function dblName(dbl, team, idx) {
+  const key = team + (idx + 1);
+  return (dbl.names[key] || '').trim() || team.toUpperCase() + (idx + 1);
 }
