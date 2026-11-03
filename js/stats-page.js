@@ -151,6 +151,13 @@ function render(points, meta) {
       row('キープ率', p(A.hold.pct), p(B.hold.pct)),
     ].join(''))}
 
+    ${table('Court side', 'デュースサイド / アドサイド', [
+      row('デュースサイドのサーブ獲得率', p(A.side.deuce.servePct), p(B.side.deuce.servePct)),
+      row('アドサイドのサーブ獲得率', p(A.side.ad.servePct), p(B.side.ad.servePct)),
+      row('デュースサイドのリターン獲得率', p(A.side.deuce.retPct), p(B.side.deuce.retPct)),
+      row('アドサイドのリターン獲得率', p(A.side.ad.retPct), p(B.side.ad.retPct)),
+    ].join(''))}
+
     ${table('Key points', '勝負所', [
       row('デュースでの獲得率', p(A.key.deucePct), p(B.key.deucePct)),
       row('30-30 での獲得率', p(A.key.bp30Pct), p(B.key.bp30Pct)),

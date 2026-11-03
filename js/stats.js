@@ -14,6 +14,12 @@
 
 export const OTHER = s => (s === 'a' ? 'b' : 'a');
 
+/* そのポイントをどちらのコートから打つか。
+   ポイント開始時の合計が偶数ならデュースサイド、奇数ならアドサイド。
+   タイブレークも1ポイントごとに入れ替わるので同じ規則でよい。
+   ダブルスでは、リターンする人はセットを通してサイドで固定される。 */
+export const courtSide = pt => ((pt.pa + pt.pb) % 2 === 0 ? 'deuce' : 'ad');
+
 /* そのポイントを取ったら side がそのゲーム（タイブレーク）を取るか */
 export function winsGameIf(side, pt, rules) {
   const me = (side === 'a' ? pt.pa : pt.pb) + 1;
@@ -58,6 +64,7 @@ export function analyse(points, meta) {
     bp: { faced: 0, lost: 0, chances: 0, converted: 0 },
     hold: { games: 0, held: 0 },
     key: { deuce: 0, deuceWon: 0, gp: 0, gpWon: 0, bp30: 0, bp30Won: 0 },
+    side: { deuce: { served: 0, servedWon: 0, ret: 0, retWon: 0 }, ad: { served: 0, servedWon: 0, ret: 0, retWon: 0 } },
     streak: 0,
   });
   const S = { a: blank(), b: blank() };
@@ -85,6 +92,13 @@ export function analyse(points, meta) {
       else S[rec].ret.secondWon++;
     }
     if (p.df) S[srv].serve.df++;
+
+    // デュースサイド / アドサイド
+    const cs = courtSide(p);
+    S[srv].side[cs].served++;
+    S[rec].side[cs].ret++;
+    if (p.w === srv) S[srv].side[cs].servedWon++;
+    else S[rec].side[cs].retWon++;
 
     // 勝負所（タイブレーク中は数えない）
     if (!p.tb) {
@@ -141,6 +155,10 @@ export function analyse(points, meta) {
     v.key.deucePct = pct(v.key.deuceWon, v.key.deuce);
     v.key.gpPct = pct(v.key.gpWon, v.key.gp);
     v.key.bp30Pct = pct(v.key.bp30Won, v.key.bp30);
+    for (const cs of ['deuce', 'ad']) {
+      v.side[cs].servePct = pct(v.side[cs].servedWon, v.side[cs].served);
+      v.side[cs].retPct = pct(v.side[cs].retWon, v.side[cs].ret);
+    }
   }
 
   const first = points[0], last = points[points.length - 1];
@@ -163,7 +181,7 @@ export function momentum(points) {
 
 /* 表計算ソフトで開けるように CSV にする */
 export function toCsv(points, meta) {
-  const head = ['順番', '時刻', 'セット', 'ゲーム', 'ポイント', 'サーバー', '1st/2nd', 'ダブルフォールト', 'タイブレーク', '取った側'];
+  const head = ['順番', '時刻', 'セット', 'ゲーム', 'ポイント', 'サーバー', 'コートサイド', '1st/2nd', 'ダブルフォールト', 'タイブレーク', '取った側'];
   const rows = points.map((p, i) => [
     i + 1,
     new Date(p.t).toLocaleString('ja-JP'),
@@ -171,6 +189,7 @@ export function toCsv(points, meta) {
     `${p.ga}-${p.gb}`,
     `${p.pa}-${p.pb}`,
     p.s === 'a' ? (meta.teams ? meta.teams.a : 'A') : meta.teams ? meta.teams.b : 'B',
+    courtSide(p) === 'deuce' ? 'デュース' : 'アド',
     p.sv === 2 ? '2nd' : '1st',
     p.df ? 'はい' : '',
     p.tb ? 'はい' : '',
